@@ -85,6 +85,11 @@ fn run(ctx: zli.CommandContext) !void {
         if (e.kind != .file) continue;
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
         if (std.mem.endsWith(u8, e.path, "-cumul.txt")) continue;
+        if (std.mem.endsWith(u8, e.path, ".ico")) continue;
+        if (std.mem.endsWith(u8, e.path, ".png")) continue;
+        if (std.mem.endsWith(u8, e.path, ".jpg")) continue;
+        if (std.mem.endsWith(u8, e.path, ".jpeg")) continue;
+        if (std.mem.endsWith(u8, e.path, ".woff")) continue;
 
         // doesn't handle src/*.zig pattern...
         for (list) |pattern| {
