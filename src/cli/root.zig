@@ -1,13 +1,15 @@
 const std = @import("std");
 const Writer = std.Io.Writer;
 const fs = std.fs;
+const Allocator = std.mem.Allocator;
+const fmt = std.fmt;
 
 const cumul = @import("cumul");
 const zli = cumul.zli;
 
 const version = @import("version.zig");
 
-pub fn build(writer: *Writer, allocator: std.mem.Allocator) !*zli.Command {
+pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
         .name = "cumul",
         .description = "A utility to cumulate all files into one for LLMs",
@@ -15,6 +17,16 @@ pub fn build(writer: *Writer, allocator: std.mem.Allocator) !*zli.Command {
     }, run);
 
     try root.addCommand(try version.register(writer, allocator));
+
+    const prefix_flag = zli.Flag{
+        .name = "prefix",
+        .shortcut = "p",
+        .description = "prefix to the filename generated",
+        .type = .String,
+        .default_value = .{ .String = "" },
+    };
+
+    try root.addFlag(prefix_flag);
 
     const arg = zli.PositionalArg{
         .name = "directory",
@@ -28,6 +40,9 @@ pub fn build(writer: *Writer, allocator: std.mem.Allocator) !*zli.Command {
 }
 
 fn run(ctx: zli.CommandContext) !void {
+    const writer = ctx.command.writer;
+    const allocator = ctx.allocator;
+    const prefix = ctx.flag("prefix", []const u8);
     const pos_args = ctx.positional_args;
 
     // Process given path
@@ -37,9 +52,6 @@ fn run(ctx: zli.CommandContext) !void {
     } else {
         path = pos_args[0];
     }
-
-    const writer = ctx.command.writer;
-    const allocator = ctx.allocator;
 
     const cwd = fs.cwd();
 
@@ -55,16 +67,21 @@ fn run(ctx: zli.CommandContext) !void {
     defer it.deinit();
 
     // Build the final filename and create the file
-    const cumul_filename = try std.fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
+
+    const cumul_filename = if (prefix.len > 0) try fmt.allocPrint(allocator, "{s}-{s}-cumul.txt", .{ prefix, base_name }) else try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
     defer allocator.free(cumul_filename);
 
     const new_file = try fs.cwd().createFile(cumul_filename, .{});
     defer new_file.close();
 
+    var num_files: u32 = 0;
+
     while (try it.next()) |e| {
-        // Skip any unwanted files/folders
+        // Skip any unwanted files/folders, update later to read .gitignore
+        // or have the user provide a list of files/folders
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
-        if (std.mem.startsWith(u8, e.path, "zig-out")) continue;
+        if (std.mem.startsWith(u8, e.path, "zig-out")) continue; // skip folder
+        if (std.mem.endsWith(u8, e.path, "-cumul.txt")) continue;
         if (std.mem.eql(u8, e.basename, cumul_filename)) continue;
 
         switch (e.kind) {
@@ -77,8 +94,10 @@ fn run(ctx: zli.CommandContext) !void {
                 };
                 defer f.close();
 
+                const stat = try f.stat();
+
                 // Read file contents safely
-                const rbuf = try f.readToEndAlloc(allocator, 1024 * 1024 * 10); // Max 10MB
+                const rbuf = try f.readToEndAlloc(allocator, stat.size);
                 defer allocator.free(rbuf);
                 if (rbuf.len == 0) continue;
 
@@ -88,9 +107,54 @@ fn run(ctx: zli.CommandContext) !void {
                 try new_file.writeAll(" --------\n");
                 try new_file.writeAll(rbuf);
                 try new_file.writeAll("\n");
-                try writer.print("{s}  - {s}\n", .{ e.basename, e.path });
+
+                num_files += 1;
             },
             else => continue,
         }
     }
+
+    const cumul_file = try cwd.openFile(cumul_filename, .{ .mode = .read_only });
+    defer cumul_file.close();
+
+    const stat = try cumul_file.stat();
+    const byte_size = stat.size;
+    const file_size = try formatSizeToHumanReadable(allocator, byte_size);
+    defer allocator.free(file_size);
+
+    const num_lines = try getNumberOfLinesInFile(allocator, &cumul_file, byte_size);
+
+    try writer.print("Number of files cumulated: {d}\n", .{num_files});
+    try writer.print("Number of lines: {d}\n", .{num_lines});
+    try writer.print("Final file size: {s}\n", .{file_size});
+    try writer.print("Written to: {s}\n", .{cumul_filename});
+}
+
+fn formatSizeToHumanReadable(allocator: Allocator, size: u64) ![]u8 {
+    if (size < 1024) {
+        return fmt.allocPrint(allocator, "{d} bytes", .{size});
+    } else if (size < 1024 * 1024) {
+        const size_kb = @as(f64, @floatFromInt(size)) / 1024.0;
+        return fmt.allocPrint(allocator, "{d:.2} KB", .{size_kb});
+    } else if (size < 1024 * 1024 * 1024) {
+        const size_mb = @as(f64, @floatFromInt(size)) / (1024.0 * 1024.0);
+        return fmt.allocPrint(allocator, "{d:.2} MB", .{size_mb});
+    } else {
+        const size_gb = @as(f64, @floatFromInt(size)) / (1024.0 * 1024.0 * 1024.0);
+        return fmt.allocPrint(allocator, "{d:.2} GB", .{size_gb});
+    }
+}
+
+fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64) !u32 {
+    const content = try file.readToEndAlloc(allocator, size);
+    defer allocator.free(content);
+
+    var it = std.mem.splitScalar(u8, content, '\n');
+    var num_lines: u32 = 0;
+
+    while (it.next()) |_| {
+        num_lines += 1;
+    }
+
+    return num_lines;
 }
