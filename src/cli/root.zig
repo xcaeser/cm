@@ -67,7 +67,6 @@ fn run(ctx: zli.CommandContext) !void {
     defer it.deinit();
 
     // Build the final filename and create the file
-
     const cumul_filename = if (prefix.len > 0) try fmt.allocPrint(allocator, "{s}-{s}-cumul.txt", .{ prefix, base_name }) else try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
     defer allocator.free(cumul_filename);
 
@@ -76,42 +75,58 @@ fn run(ctx: zli.CommandContext) !void {
 
     var num_files: u32 = 0;
 
-    while (try it.next()) |e| {
-        // Skip any unwanted files/folders, update later to read .gitignore
-        // or have the user provide a list of files/folders
+    const list = try getSkippablefilesFromGitIgnore(allocator);
+    defer {
+        for (list) |l| allocator.free(l);
+        allocator.free(list);
+    }
+
+    outer: while (try it.next()) |e| {
+        if (e.kind != .file) continue;
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
-        if (std.mem.startsWith(u8, e.path, "zig-out")) continue; // skip folder
         if (std.mem.endsWith(u8, e.path, "-cumul.txt")) continue;
-        if (std.mem.eql(u8, e.basename, cumul_filename)) continue;
 
-        switch (e.kind) {
-            .file => {
-
-                // Open the file and read its content
-                var f = dir.openFile(e.path, .{ .mode = .read_only }) catch |err| {
-                    try writer.print("Skipping {s}: {s}\n", .{ e.path, @errorName(err) });
-                    continue;
-                };
-                defer f.close();
-
-                const stat = try f.stat();
-
-                // Read file contents safely
-                const rbuf = try f.readToEndAlloc(allocator, stat.size);
-                defer allocator.free(rbuf);
-                if (rbuf.len == 0) continue;
-
-                // Write to the new file
-                try new_file.writeAll("-------- FILE: ");
-                try new_file.writeAll(e.path);
-                try new_file.writeAll(" --------\n");
-                try new_file.writeAll(rbuf);
-                try new_file.writeAll("\n");
-
-                num_files += 1;
-            },
-            else => continue,
+        // doesn't handle src/*.zig pattern...
+        for (list) |pattern| {
+            const star_index = std.mem.indexOf(u8, pattern, "*");
+            if (star_index) |i| {
+                if (i == 0) {
+                    // Handle *.ext patterns
+                    const suffix = pattern[i + 1 ..];
+                    if (std.mem.endsWith(u8, e.basename, suffix)) continue :outer;
+                } else {
+                    // Handle prefix* patterns
+                    const prfx = pattern[0..i];
+                    if (std.mem.startsWith(u8, e.basename, prfx)) continue :outer;
+                }
+            } else {
+                // Handle exact or directory patterns
+                if (std.mem.indexOf(u8, e.path, pattern) != null) continue :outer;
+            }
         }
+
+        // Open the file and read its content
+        var f = dir.openFile(e.path, .{ .mode = .read_only }) catch |err| {
+            try writer.print("Skipping {s}: {s}\n", .{ e.path, @errorName(err) });
+            continue;
+        };
+        defer f.close();
+
+        const stat = try f.stat();
+
+        // Read file contents safely
+        const rbuf = try f.readToEndAlloc(allocator, stat.size);
+        defer allocator.free(rbuf);
+        if (rbuf.len == 0) continue;
+
+        // Write to the new file
+        try new_file.writeAll("-------- FILE: ");
+        try new_file.writeAll(e.path);
+        try new_file.writeAll(" --------\n");
+        try new_file.writeAll(rbuf);
+        try new_file.writeAll("\n");
+
+        num_files += 1;
     }
 
     const cumul_file = try cwd.openFile(cumul_filename, .{ .mode = .read_only });
@@ -130,6 +145,7 @@ fn run(ctx: zli.CommandContext) !void {
     try writer.print("Written to: {s}\n", .{cumul_filename});
 }
 
+/// Need to free memory after
 fn formatSizeToHumanReadable(allocator: Allocator, size: u64) ![]u8 {
     if (size < 1024) {
         return fmt.allocPrint(allocator, "{d} bytes", .{size});
@@ -145,6 +161,7 @@ fn formatSizeToHumanReadable(allocator: Allocator, size: u64) ![]u8 {
     }
 }
 
+/// No Need to free memory after
 fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64) !u32 {
     const content = try file.readToEndAlloc(allocator, size);
     defer allocator.free(content);
@@ -157,4 +174,27 @@ fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64)
     }
 
     return num_lines;
+}
+
+/// Need to free memory after
+fn getSkippablefilesFromGitIgnore(allocator: Allocator) ![][]const u8 {
+    const cwd = fs.cwd();
+    var array = std.ArrayList([]const u8).init(allocator);
+    errdefer array.deinit();
+
+    const gitignore = try cwd.openFile(".gitignore", .{ .mode = .read_only });
+    defer gitignore.close();
+    const stat = try gitignore.stat();
+
+    const content = try gitignore.readToEndAlloc(allocator, stat.size);
+    defer allocator.free(content);
+
+    var it = std.mem.splitScalar(u8, content, '\n');
+    while (it.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t");
+        if (trimmed.len == 0 or std.mem.startsWith(u8, trimmed, "#")) continue;
+        try array.append(try allocator.dupe(u8, trimmed));
+    }
+
+    return array.toOwnedSlice();
 }

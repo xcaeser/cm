@@ -22,6 +22,7 @@ pub fn build(b: *std.Build) void {
             .imports = &.{
                 .{ .name = "cumul", .module = mod },
             },
+            .link_libc = true,
         }),
     });
 
