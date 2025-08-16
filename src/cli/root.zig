@@ -70,8 +70,8 @@ fn run(ctx: zli.CommandContext) !void {
     const cumul_filename = if (prefix.len > 0) try fmt.allocPrint(allocator, "{s}-{s}-cumul.txt", .{ prefix, base_name }) else try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
     defer allocator.free(cumul_filename);
 
-    const new_file = try fs.cwd().createFile(cumul_filename, .{});
-    defer new_file.close();
+    const cumul_file = try fs.cwd().createFile(cumul_filename, .{});
+    defer cumul_file.close();
 
     var num_files: u32 = 0;
 
@@ -125,24 +125,24 @@ fn run(ctx: zli.CommandContext) !void {
         if (rbuf.len == 0) continue;
 
         // Write to the new file
-        try new_file.writeAll("-------- FILE: ");
-        try new_file.writeAll(e.path);
-        try new_file.writeAll(" --------\n");
-        try new_file.writeAll(rbuf);
-        try new_file.writeAll("\n");
+        try cumul_file.writeAll("-------- FILE: ");
+        try cumul_file.writeAll(e.path);
+        try cumul_file.writeAll(" --------\n");
+        try cumul_file.writeAll(rbuf);
+        try cumul_file.writeAll("\n");
 
         num_files += 1;
     }
 
-    const cumul_file = try cwd.openFile(cumul_filename, .{ .mode = .read_only });
-    defer cumul_file.close();
+    const cumul_file_final = try cwd.openFile(cumul_filename, .{ .mode = .read_only });
+    defer cumul_file_final.close();
 
-    const stat = try cumul_file.stat();
+    const stat = try cumul_file_final.stat();
     const byte_size = stat.size;
     const file_size = try formatSizeToHumanReadable(allocator, byte_size);
     defer allocator.free(file_size);
 
-    const num_lines = try getNumberOfLinesInFile(allocator, &cumul_file, byte_size);
+    const num_lines = try getNumberOfLinesInFile(allocator, &cumul_file_final, byte_size);
 
     try writer.print("Number of files cumulated: {d}\n", .{num_files});
     try writer.print("Number of lines: {d}\n", .{num_lines});
@@ -184,8 +184,8 @@ fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64)
 /// Need to free memory after
 fn getSkippablefilesFromGitIgnore(allocator: Allocator) ![][]const u8 {
     const cwd = fs.cwd();
-    var array = std.ArrayList([]const u8).init(allocator);
-    errdefer array.deinit();
+    var array = std.ArrayList([]const u8).empty;
+    errdefer array.deinit(allocator);
 
     const gitignore = try cwd.openFile(".gitignore", .{ .mode = .read_only });
     defer gitignore.close();
@@ -198,8 +198,8 @@ fn getSkippablefilesFromGitIgnore(allocator: Allocator) ![][]const u8 {
     while (it.next()) |line| {
         const trimmed = std.mem.trim(u8, line, " \t");
         if (trimmed.len == 0 or std.mem.startsWith(u8, trimmed, "#")) continue;
-        try array.append(try allocator.dupe(u8, trimmed));
+        try array.append(allocator, try allocator.dupe(u8, trimmed));
     }
 
-    return array.toOwnedSlice();
+    return array.toOwnedSlice(allocator);
 }

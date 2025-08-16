@@ -167,7 +167,7 @@ pub const Command = struct {
             .writer = writer,
             .allocator = allocator,
             .options = options,
-            .positional_args = ArrayList(PositionalArg).init(allocator),
+            .positional_args = ArrayList(PositionalArg).empty,
             .execFn = execFn,
             .flags_by_name = StringHashMap(Flag).init(allocator),
             .flags_by_shortcut = StringHashMap(Flag).init(allocator),
@@ -191,7 +191,7 @@ pub const Command = struct {
     }
 
     pub fn deinit(self: *Command) void {
-        self.positional_args.deinit();
+        self.positional_args.deinit(self.allocator);
 
         self.flags_by_name.deinit();
         self.flags_by_shortcut.deinit();
@@ -215,12 +215,12 @@ pub const Command = struct {
 
         try self.writer.print("{s}:\n", .{self.options.commands_title});
 
-        var commands = ArrayList(*Command).init(self.allocator);
-        defer commands.deinit();
+        var commands = ArrayList(*Command).empty;
+        defer commands.deinit(self.allocator);
 
         var it = self.commands_by_name.iterator();
         while (it.next()) |entry| {
-            try commands.append(entry.value_ptr.*);
+            try commands.append(self.allocator, entry.value_ptr.*);
         }
 
         std.sort.insertion(*Command, commands.items, {}, struct {
@@ -306,14 +306,14 @@ pub const Command = struct {
         try self.writer.print("Flags:\n", .{});
 
         // Collect all flags into a list for processing
-        var flags = ArrayList(Flag).init(self.allocator);
-        defer flags.deinit();
+        var flags = ArrayList(Flag).empty;
+        defer flags.deinit(self.allocator);
 
         var it = self.flags_by_name.iterator();
         while (it.next()) |entry| {
             const flag = entry.value_ptr.*;
             if (!flag.hidden) {
-                try flags.append(flag);
+                try flags.append(self.allocator, flag);
             }
         }
 
@@ -364,8 +364,8 @@ pub const Command = struct {
     }
 
     pub fn printUsageLine(self: *Command) !void {
-        const parents = try self.getParents(self.allocator);
-        defer parents.deinit();
+        var parents = try self.getParents(self.allocator);
+        defer parents.deinit(self.allocator);
 
         try self.writer.print("Usage: ", .{});
 
@@ -406,8 +406,8 @@ pub const Command = struct {
                 try self.writer.print("{s}\n\n", .{help});
             }
 
-            const parents = try self.getParents(self.allocator);
-            defer parents.deinit();
+            var parents = try self.getParents(self.allocator);
+            defer parents.deinit(self.allocator);
 
             // Usage
             if (self.options.usage) |usage| {
@@ -513,11 +513,11 @@ pub const Command = struct {
     }
 
     pub fn getParents(self: *Command, allocator: Allocator) !ArrayList(*Command) {
-        var list = ArrayList(*Command).init(allocator);
+        var list = ArrayList(*Command).empty;
 
         var cmd = self;
         while (cmd.parent) |p| {
-            try list.append(p);
+            try list.append(allocator, p);
             cmd = p;
         }
 
@@ -548,7 +548,7 @@ pub const Command = struct {
                 std.process.exit(1);
             }
         }
-        try self.positional_args.append(pos_arg);
+        try self.positional_args.append(self.allocator, pos_arg);
     }
 
     pub fn addFlag(self: *Command, flag: Flag) !void {
@@ -678,7 +678,7 @@ pub const Command = struct {
             // Positional argument
             else {
                 const val = try popFront([]const u8, args);
-                try out_positionals.append(val);
+                try out_positionals.append(self.allocator, val);
             }
         }
     }
@@ -779,14 +779,14 @@ pub const Command = struct {
         defer input.deinit();
         _ = input.skip(); // skip program name
 
-        var args = ArrayList([]const u8).init(self.allocator);
-        defer args.deinit();
+        var args = ArrayList([]const u8).empty;
+        defer args.deinit(self.allocator);
         while (input.next()) |arg| {
-            try args.append(arg);
+            try args.append(self.allocator, arg);
         }
 
-        var pos_args = ArrayList([]const u8).init(self.allocator);
-        defer pos_args.deinit();
+        var pos_args = ArrayList([]const u8).empty;
+        defer pos_args.deinit(self.allocator);
 
         var cmd = self.findLeaf(&args) catch |err| {
             if (err == error.UnknownCommand) {
@@ -814,8 +814,8 @@ pub const Command = struct {
     }
 
     fn displayCommandError(self: *Command) !void {
-        const parents = try self.getParents(self.allocator);
-        defer parents.deinit();
+        var parents = try self.getParents(self.allocator);
+        defer parents.deinit(self.allocator);
 
         try self.writer.print("\nRun: '", .{});
         for (parents.items) |p| {

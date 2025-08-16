@@ -2,7 +2,7 @@
     .name = .cumul,
     .version = "0.1.0",
     .fingerprint = 0x1212529d731ca4fb,
-    .minimum_zig_version = "0.15.0-dev.1380+e98aeeb73",
+    .minimum_zig_version = "0.15.0-dev.1552+b87b95868",
     .dependencies = .{},
     .paths = .{
         "build.zig",
