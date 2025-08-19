@@ -124,11 +124,13 @@ fn run(ctx: zli.CommandContext) !void {
         defer allocator.free(rbuf);
         if (rbuf.len == 0) continue;
 
+        const content = std.mem.trim(u8, rbuf, " \n");
+
         // Write to the new file
         try cumul_file.writeAll("-------- FILE: ");
         try cumul_file.writeAll(e.path);
         try cumul_file.writeAll(" --------\n");
-        try cumul_file.writeAll(rbuf);
+        try cumul_file.writeAll(content);
         try cumul_file.writeAll("\n");
 
         num_files += 1;

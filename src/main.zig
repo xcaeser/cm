@@ -1,5 +1,6 @@
 const std = @import("std");
 const Io = std.Io;
+const fs = std.fs;
 
 const cumul = @import("cumul");
 
@@ -11,7 +12,8 @@ pub fn main() !void {
     const allocator = dbg.allocator();
     // const allocator = std.heap.smp_allocator;
 
-    var writer = std.fs.File.stdout().writerStreaming(&.{}).interface;
+    const file = fs.File.stdout();
+    var writer = file.writerStreaming(&.{}).interface;
 
     const root = try cli.build(&writer, allocator);
     defer root.deinit();

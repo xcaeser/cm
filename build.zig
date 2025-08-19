@@ -4,7 +4,7 @@ pub fn build(b: *std.Build) void {
     b.reference_trace = 10;
     const target = b.standardTargetOptions(.{});
 
-    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseFast });
+    const optimize = b.standardOptimizeOption(.{});
 
     const mod = b.addModule("cumul", .{
         .root_source_file = b.path("src/root.zig"),
