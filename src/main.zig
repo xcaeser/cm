@@ -19,4 +19,6 @@ pub fn main() !void {
     defer root.deinit();
 
     try root.execute(.{});
+
+    try writer.flush();
 }

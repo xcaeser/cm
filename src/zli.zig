@@ -810,7 +810,6 @@ pub const Command = struct {
         };
 
         try cmd.execFn(ctx);
-        try cmd.writer.flush();
     }
 
     fn displayCommandError(self: *Command) !void {
