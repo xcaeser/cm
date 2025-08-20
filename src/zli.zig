@@ -246,7 +246,6 @@ pub const Command = struct {
             section_map.deinit();
         }
 
-        // Populate the map.
         var it = self.commands_by_name.iterator();
         while (it.next()) |entry| {
             const cmd = entry.value_ptr.*;
@@ -259,9 +258,6 @@ pub const Command = struct {
             try list.value_ptr.*.append(cmd);
         }
 
-        // --- START: MODIFIED SECTION ---
-
-        // 1. Collect all section titles (keys) from the map.
         var section_keys = ArrayList([]const u8).init(self.allocator);
         defer section_keys.deinit();
 
@@ -283,10 +279,8 @@ pub const Command = struct {
 
             try self.writer.print("{s}{s}{s}:\n", .{ styles.BOLD, section_name, styles.RESET });
 
-            // 4. FIX: Sort the commands *within* this section by their name.
             std.sort.insertion(*Command, cmds_list.items, {}, struct {
                 pub fn lessThan(_: void, a: *Command, b: *Command) bool {
-                    // Sort by command name, not section title
                     return std.mem.order(u8, a.options.name, b.options.name) == .lt;
                 }
             }.lessThan);
@@ -294,7 +288,6 @@ pub const Command = struct {
             try printAlignedCommands(cmds_list.items);
             try self.writer.print("\n", .{});
         }
-        // --- END: MODIFIED SECTION ---
     }
 
     pub fn listFlags(self: *const Command) !void {
@@ -773,6 +766,13 @@ pub const Command = struct {
     }
 
     // Need to make find command, parse flags and parse pos_args execution in parallel
+    /// Executes the command by handling all positional args, subcommands, flags etc...
+    ///
+    /// Caller needs to flush the writer after calling this fn.
+    /// ```zig
+    ///  try root.execute(.{});
+    ///  try writer.flush();
+    /// ```
     pub fn execute(self: *Command, context: struct { data: ?*anyopaque = null }) !void {
         var input = try std.process.argsWithAllocator(self.allocator);
         defer input.deinit();
