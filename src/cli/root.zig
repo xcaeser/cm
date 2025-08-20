@@ -57,11 +57,18 @@ fn run(ctx: zli.CommandContext) !void {
 
     // Get the real path and base directory name
     var obuf: [fs.max_path_bytes]u8 = undefined;
-    const real_path = try cwd.realpath(path, &obuf);
+    const real_path = cwd.realpath(path, &obuf) catch |err| {
+        if (err == error.FileNotFound) try writer.print("Path '{s}' not found.\n", .{path});
+
+        return;
+    };
     const base_name = fs.path.basename(real_path);
 
     // Walk the directories of the path provided
-    var dir = try cwd.openDir(path, .{ .iterate = true });
+    var dir = cwd.openDir(path, .{ .iterate = true }) catch |err| {
+        if (err == error.FileNotFound) try writer.print("Path '{s}' not found.\n", .{path});
+        return;
+    };
     defer dir.close();
     var it = try dir.walk(allocator);
     defer it.deinit();
@@ -146,10 +153,13 @@ fn run(ctx: zli.CommandContext) !void {
 
     const num_lines = try getNumberOfLinesInFile(allocator, &cumul_file_final, byte_size);
 
-    try writer.print("Number of files cumulated: {d}\n", .{num_files});
-    try writer.print("Number of lines: {d}\n", .{num_lines});
-    try writer.print("Final file size: {s}\n", .{file_size});
-    try writer.print("Written to: {s}\n", .{cumul_filename});
+    try writer.print(
+        \\Number of files cumulated: {d}
+        \\Number of lines: {d}
+        \\Final file size: {s}
+        \\Written to: {s}
+        \\
+    , .{ num_files, num_lines, file_size, cumul_filename });
 }
 
 /// Need to free memory after

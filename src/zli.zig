@@ -141,7 +141,6 @@ pub const CommandOptions = struct {
 /// such as "run", "version", or any other user-invoked operation.
 /// Each command encapsulates specific functionality or behavior
 /// that the CLI can execute.
-/// Command represents a single command in the CLI, such as "run" or "version".
 pub const Command = struct {
     options: CommandOptions,
 
@@ -811,6 +810,7 @@ pub const Command = struct {
         };
 
         try cmd.execFn(ctx);
+        try cmd.writer.flush();
     }
 
     fn displayCommandError(self: *Command) !void {
