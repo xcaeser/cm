@@ -2,8 +2,6 @@ const std = @import("std");
 const Io = std.Io;
 const fs = std.fs;
 
-const cumul = @import("cumul");
-
 const cli = @import("cli/root.zig");
 
 pub fn main() !void {

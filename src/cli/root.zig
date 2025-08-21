@@ -4,8 +4,7 @@ const fs = std.fs;
 const Allocator = std.mem.Allocator;
 const fmt = std.fmt;
 
-const cumul = @import("cumul");
-const zli = cumul.zli;
+const zli = @import("zli");
 
 const version = @import("version.zig");
 
@@ -98,7 +97,7 @@ fn run(ctx: zli.CommandContext) !void {
         if (std.mem.endsWith(u8, e.path, ".jpeg")) continue;
         if (std.mem.endsWith(u8, e.path, ".woff")) continue;
 
-        // doesn't handle src/*.zig pattern...
+        // doesn't handle src/*.zig pattern... etc.. might pull in fnmatch or glob.h
         for (list) |pattern| {
             const star_index = std.mem.indexOf(u8, pattern, "*");
             if (star_index) |i| {
