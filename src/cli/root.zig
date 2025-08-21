@@ -10,9 +10,9 @@ const version = @import("version.zig");
 
 pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
-        .name = "cumul",
+        .name = "cm (cumul)",
         .description = "A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("1.0.0") catch unreachable,
+        .version = std.SemanticVersion.parse("0.1.0") catch unreachable,
     }, run);
 
     try root.addCommand(try version.register(writer, allocator));
