@@ -1,9 +1,7 @@
 #!/bin/bash
-set -e
 
-# Usage: ./release.sh 0.1.0
-# This script commits changes, tags a new version, and pushes to GitHub.
-# The GitHub Action workflow will handle the release creation.
+# Usage: ./release.sh 1.0.0
+set -e
 
 VERSION=$1
 NOTES_FILE="RELEASE-NOTES.md"
@@ -14,22 +12,24 @@ if [ -z "$VERSION" ]; then
 fi
 
 if [ ! -f "$NOTES_FILE" ]; then
-  echo "❌ Release notes file '$NOTES_FILE' not found. Please create it before releasing."
+  echo "❌ Release notes file '$NOTES_FILE' not found."
   exit 1
 fi
 
-echo "Releasing v$VERSION..."
+# Optional: commit if there are changes
+if ! git diff-index --quiet HEAD --; then
+  git add .
+  git commit -m "Release v$VERSION"
+fi
 
-
-git add .
-
-git commit -m "docs: Prepare release v$VERSION" || true
-
-echo "Tagging and pushing..."
-
-git tag -a "v$VERSION" -F "$NOTES_FILE"
+# Tag and push
+git tag -a "v$VERSION" -m "Version $VERSION"
 git push origin main
 git push origin "v$VERSION"
 
-echo "✅ Tag v$VERSION pushed to GitHub. The release workflow has been triggered."
-echo "   Check the 'Actions' tab in your repository for progress."
+# Create GitHub release with notes from file
+gh release create "v$VERSION" \
+  --title "v$VERSION" \
+  --notes-file "$NOTES_FILE"
+
+echo "✅ GitHub release v$VERSION published."

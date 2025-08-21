@@ -11,15 +11,7 @@ The tool scans a specified directory, respects the patterns in your `.gitignore`
 - **Smart Filtering**: Skips dotfiles, common image formats, and the output file itself.
 - **Customizable Output**: Use a prefix for the generated filename.
 
-## Installation
-
-### From bash:
-
-```bash
-curl -sSfL https://raw.githubusercontent.com/xcaeser/cm/main/install.sh | sh
-```
-
-### From source:
+## Installation from source
 
 You can build and install `cumul` using the Zig build system.
 
