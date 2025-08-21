@@ -1,4 +1,4 @@
-# Contributing to zli
+# Contributing to cumul
 
 Thank you for considering contributing to zli!
 
@@ -23,3 +23,4 @@ zig build
 
 # Run tests
 zig build test
+```
