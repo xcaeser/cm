@@ -1,5 +1,5 @@
 const std = @import("std");
-
+const testing = std.testing;
 const Matcher = @This();
 
 /// Asterisk (*):
@@ -25,28 +25,47 @@ const Matcher = @This();
 /// Matches zero or more directories and subdirectories recursively. This is also typically an extended glob feature.
 /// Example: src/**/*.js matches all .js files within the src directory and any of its subdirectories.
 ///
-pub fn match(pattern: []const u8, target: []const u8) !bool {
-    var pattern_index: usize = 0;
+pub fn match(pattern: []const u8, target: []const u8) bool {
+    var left_ok: bool = false;
+    var right_ok: bool = false;
 
-    main_loop: while (pattern_index < pattern.len) {
-        const current_pattern_char = pattern[pattern_index];
-        _ = current_pattern_char; // autofix
+    // xx*x$xxx
+    //    ^
+    if (std.mem.indexOfScalar(u8, pattern, '*')) |pattern_index| {
+        const left_side = pattern[0..pattern_index];
+        const right_side = pattern[pattern_index + 1 ..];
 
-        if (std.mem.startsWith(u8, pattern, "*")) {
-            const fixed_to_match = pattern[pattern_index + 1 ..];
-            if (std.mem.endsWith(u8, target, fixed_to_match)) {
-                return true;
+        if (left_side.len > 0) {
+            std.debug.print("Left : {s}\n", .{left_side});
+
+            const clip = target[0..left_side.len];
+            std.debug.print("Clipping: {s}\n", .{clip});
+
+            if (std.mem.eql(u8, clip, left_side)) {
+                std.debug.print("Left side Matching!!!\n", .{});
+
+                left_ok = true;
             }
-        } else if (std.mem.endsWith(u8, pattern, "*")) {
-            const fixed_to_match = pattern[0..pattern_index];
-            if (std.mem.startsWith(u8, pattern, fixed_to_match)) {
-                return true;
-            }
-        }
+        } else left_ok = true;
+        if (right_side.len > 0) {
+            std.debug.print("Right : {s}\n", .{right_side});
 
-        pattern_index += 1;
-        continue :main_loop;
+            const clip = target[target.len - right_side.len .. target.len];
+            std.debug.print("Clipping: {s}\n", .{clip});
+
+            if (std.mem.eql(u8, clip, right_side)) {
+                std.debug.print("Right side Matching!!!\n", .{});
+
+                right_ok = true;
+            }
+        } else right_ok = true;
     }
 
-    return false;
+    return left_ok and right_ok;
+}
+
+test "Glob zig" {
+    const star_start = match("a*d.txt", "anaoufalmamasitad.txt");
+
+    std.debug.print("* Start Matched: {}\n", .{star_start});
 }

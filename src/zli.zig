@@ -769,6 +769,8 @@ pub const Command = struct {
     ///
     /// Caller needs to flush the writer after calling this fn.
     /// ```zig
+    ///  const root = try cli.build(&writer, allocator);
+    ///  defer root.deinit();
     ///  try root.execute(.{});
     ///  try writer.flush();
     /// ```
@@ -798,10 +800,9 @@ pub const Command = struct {
         try cmd.parseArgsAndFlags(&args, &pos_args);
         cmd.parsePositionalArgs(&pos_args) catch std.process.exit(1);
 
-        const root = self;
         const ctx = CommandContext{
-            .root = root,
-            .direct_parent = cmd.parent orelse root,
+            .root = self,
+            .direct_parent = cmd.parent orelse self,
             .command = cmd,
             .allocator = cmd.allocator,
             .positional_args = pos_args.items,
