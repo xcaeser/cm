@@ -27,9 +27,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    // const home = b.graph.env_map.get("HOME") orelse unreachable;
-    // const prefix = b.pathJoin(&.{ home, ".local" });
-    // b.resolveInstallPrefix(prefix, .{});
+    const home = b.graph.env_map.get("HOME") orelse unreachable;
+    const prefix = b.pathJoin(&.{ home, ".local" });
+    b.resolveInstallPrefix(prefix, .{});
 
     b.installArtifact(exe);
 
@@ -59,4 +59,26 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+
+    // ZLS build on save
+    const exe_check = b.addExecutable(.{
+        .name = "cm",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+
+            .target = target,
+            .optimize = optimize,
+
+            .imports = &.{
+                .{ .name = "zli", .module = zli_dep.module("zli") },
+                .{ .name = "cumul", .module = mod },
+            },
+        }),
+    });
+
+    // Finally we add the "check" step which will be detected
+    // by ZLS and automatically enable Build-On-Save.
+    // If you copy this into your `build.zig`, make sure to rename 'foo'
+    const check = b.step("check", "Check if foo compiles");
+    check.dependOn(&exe_check.step);
 }

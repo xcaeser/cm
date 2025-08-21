@@ -5,9 +5,9 @@
     .minimum_zig_version = "0.15.1",
     .dependencies = .{
         .zli = .{
-            .url = "https://github.com/xcaeser/zli/archive/v4.0.2.tar.gz",
-            .hash = "zli-4.0.2-LeUjptHcAADTBLSy96rsVMTeyH92aHodOXRSEneOwBIB",
-            // .path = "../zli",
+            // .url = "https://github.com/xcaeser/zli/archive/v4.0.3.tar.gz",
+            // .hash = "zli-4.0.3-LeUjpi7cAACisGt17qJt7uGnnXS9f_xtU8VEGUfsT1G2",
+            .path = "../zli",
         },
     },
     .paths = .{

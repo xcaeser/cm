@@ -7,6 +7,7 @@ const fmt = std.fmt;
 const zli = @import("zli");
 
 const version = @import("version.zig");
+const start = @import("start.zig");
 
 pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
@@ -16,6 +17,7 @@ pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
     }, run);
 
     try root.addCommand(try version.register(writer, allocator));
+    try root.addCommand(try start.register(writer, allocator));
 
     const prefix_flag = zli.Flag{
         .name = "prefix",
@@ -25,7 +27,16 @@ pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
         .default_value = .{ .String = "" },
     };
 
+    const exclude_flag = zli.Flag{
+        .name = "exclude",
+        .shortcut = "e",
+        .description = "list of extenstion separated by a comma. ex: .md,.ico,.png etc...",
+        .type = .String,
+        .default_value = .{ .String = "" },
+    };
+
     try root.addFlag(prefix_flag);
+    try root.addFlag(exclude_flag);
 
     const arg = zli.PositionalArg{
         .name = "directory",
@@ -42,6 +53,7 @@ fn run(ctx: zli.CommandContext) !void {
     const writer = ctx.command.writer;
     const allocator = ctx.allocator;
     const prefix = ctx.flag("prefix", []const u8);
+    const exclude = ctx.flag("exclude", []const u8);
     const pos_args = ctx.positional_args;
 
     // Process given path
@@ -87,6 +99,16 @@ fn run(ctx: zli.CommandContext) !void {
         allocator.free(list);
     }
 
+    var excl_list = std.ArrayList([]const u8).empty;
+    defer excl_list.deinit(allocator);
+
+    if (exclude.len > 0) {
+        var excl_it = std.mem.splitScalar(u8, exclude, ',');
+        while (excl_it.next()) |e| {
+            try excl_list.append(allocator, e);
+        }
+    }
+
     outer: while (try it.next()) |e| {
         if (e.kind != .file) continue;
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
@@ -96,6 +118,9 @@ fn run(ctx: zli.CommandContext) !void {
         if (std.mem.endsWith(u8, e.path, ".jpg")) continue;
         if (std.mem.endsWith(u8, e.path, ".jpeg")) continue;
         if (std.mem.endsWith(u8, e.path, ".woff")) continue;
+        for (excl_list.items) |ex| {
+            if (std.mem.endsWith(u8, e.path, ex)) continue :outer;
+        }
 
         // doesn't handle src/*.zig pattern... etc.. might pull in fnmatch or glob.h
         for (list) |pattern| {

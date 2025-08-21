@@ -1,7 +1,7 @@
 const std = @import("std");
 const Writer = std.Io.Writer;
 
-pub const zli = @import("zli");
+const zli = @import("zli");
 
 pub fn register(writer: *Writer, allocator: std.mem.Allocator) !*zli.Command {
     return zli.Command.init(writer, allocator, .{
