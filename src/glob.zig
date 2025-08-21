@@ -1,71 +1,109 @@
 const std = @import("std");
 const testing = std.testing;
-const Matcher = @This();
 
-/// Asterisk (*):
-/// Matches zero or more characters.
-/// Example: *.txt matches all files ending with .txt.
-/// Example: data* matches all files starting with data.
-/// Example: *report* matches all files containing "report" in their name.
-///
-/// Question Mark (?):
-/// Matches any single character.
-/// Example: file?.log matches file1.log, fileA.log, but not file12.log.
-///
-/// Brackets ([]):
-/// Matches any single character within the specified set.
-/// Example: [abc].txt matches a.txt, b.txt, or c.txt.
-/// Example: [0-9].csv matches any single digit followed by .csv.
-///
-/// Braces ({}):
-/// Matches one of a comma-separated list of alternatives. This is often an extended glob feature.
-/// Example: .{jpg,png} matches files ending with either .jpg or .png.
-///
-/// Double Asterisk (``)**
-/// Matches zero or more directories and subdirectories recursively. This is also typically an extended glob feature.
-/// Example: src/**/*.js matches all .js files within the src directory and any of its subdirectories.
-///
-pub fn match(pattern: []const u8, target: []const u8) bool {
-    var left_ok: bool = false;
-    var right_ok: bool = false;
+// Helper to consume a run of '*' and decide if it's `**`
+fn eatStars(pat: []const u8, start: usize) struct { next: usize, cross: bool } {
+    var i = start;
+    var count: usize = 0;
+    while (i < pat.len and pat[i] == '*') : (i += 1) count += 1;
 
-    // xx*x$xxx
-    //    ^
-    if (std.mem.indexOfScalar(u8, pattern, '*')) |pattern_index| {
-        const left_side = pattern[0..pattern_index];
-        const right_side = pattern[pattern_index + 1 ..];
+    const cross = count >= 2; // two or more '*' behave like `**`
 
-        if (left_side.len > 0) {
-            std.debug.print("Left : {s}\n", .{left_side});
-
-            const clip = target[0..left_side.len];
-            std.debug.print("Clipping: {s}\n", .{clip});
-
-            if (std.mem.eql(u8, clip, left_side)) {
-                std.debug.print("Left side Matching!!!\n", .{});
-
-                left_ok = true;
-            }
-        } else left_ok = true;
-        if (right_side.len > 0) {
-            std.debug.print("Right : {s}\n", .{right_side});
-
-            const clip = target[target.len - right_side.len .. target.len];
-            std.debug.print("Clipping: {s}\n", .{clip});
-
-            if (std.mem.eql(u8, clip, right_side)) {
-                std.debug.print("Right side Matching!!!\n", .{});
-
-                right_ok = true;
-            }
-        } else right_ok = true;
+    // Common convenience: treat `**/` as a single unit (zero-or-more dirs).
+    if (cross and i < pat.len and pat[i] == '/') {
+        i += 1;
     }
-
-    return left_ok and right_ok;
+    return .{ .next = i, .cross = cross };
 }
 
-test "Glob zig" {
-    const star_start = match("a*d.txt", "anaoufalmamasitad.txt");
+/// Glob match for paths supporting `?`, `*`, and `**`.
+/// - `?`  matches exactly one non-`/` character
+/// - `*`  matches zero or more non-`/` characters
+/// - `**` matches zero or more characters including `/` (can cross directories)
+pub fn matchPath(pattern: []const u8, path: []const u8) bool {
+    var pi: usize = 0; // pattern index
+    var ti: usize = 0; // text index
 
-    std.debug.print("* Start Matched: {}\n", .{star_start});
+    // Backtracking state for the most recent wildcard group
+    var back_pat_i: ?usize = null; // index in pattern to resume after wildcard
+    var back_txt_i: usize = 0; // next char in text to try for that wildcard
+    var back_cross_slash: bool = false; // true for `**`, false for `*`
+
+    while (true) {
+        if (ti < path.len and pi < pattern.len) {
+            const pc = pattern[pi];
+
+            if (pc == '*') {
+                const info = eatStars(pattern, pi);
+                // Save backtrack point: wildcard can match empty; try longer on mismatch.
+                back_pat_i = info.next;
+                back_txt_i = ti;
+                back_cross_slash = info.cross;
+                pi = info.next;
+                continue;
+            } else if (pc == '?') {
+                if (path[ti] == '/') {
+                    // `?` cannot consume slash -> fall through to backtrack
+                } else {
+                    pi += 1;
+                    ti += 1;
+                    continue;
+                }
+            } else if (pc == path[ti]) {
+                pi += 1;
+                ti += 1;
+                continue;
+            }
+            // mismatch below…
+        }
+
+        // If we reached end of path, we may still have trailing stars in pattern
+        if (ti == path.len) {
+            // Consume any trailing `*` or `**/`
+            while (pi < pattern.len and pattern[pi] == '*') {
+                const info = eatStars(pattern, pi);
+                pi = info.next;
+            }
+            return pi == pattern.len;
+        }
+
+        // Mismatch while text remains: can we extend the last wildcard?
+        if (back_pat_i) |resume_pi| {
+            if (back_txt_i < path.len) {
+                const ch = path[back_txt_i];
+                if (!back_cross_slash and ch == '/') {
+                    // Single `*` cannot cross directories; this wildcard is exhausted.
+                    // Clear it and continue to see if an earlier wildcard existed (we track only the most recent).
+                    back_pat_i = null;
+                } else {
+                    // Let the wildcard eat one more char and retry from its resume point.
+                    back_txt_i += 1;
+                    ti = back_txt_i;
+                    pi = resume_pi;
+                    continue;
+                }
+            } else {
+                back_pat_i = null; // nothing left to consume
+            }
+        }
+
+        return false; // hard mismatch
+    }
+}
+
+test "glob path: ** and ?" {
+    // Your example: any depth under src/, file name must end with one extra char.
+    try testing.expect(matchPath("src/**/*?", "src/a/b/cx"));
+    try testing.expect(matchPath("src/**/*?", "src/x")); // '*' empty + '?' = one char
+    try testing.expect(!matchPath("src/**/*?", "src/")); // needs at least one char for '?'
+
+    // `**` crosses directories, `*` doesn't.
+    try testing.expect(matchPath("src/**/a.txt", "src/a.txt"));
+    try testing.expect(matchPath("src/**/a.txt", "src/foo/bar/a.txt"));
+    try testing.expect(matchPath("src/*/a.txt", "src/foo/a.txt"));
+    try testing.expect(!matchPath("src/*/a.txt", "src/foo/bar/a.txt")); // single `*` can't cross '/'
+
+    // `?` and `*` do not match '/'
+    try testing.expect(!matchPath("a?b", "a/b"));
+    try testing.expect(!matchPath("a*b", "a/b"));
 }
