@@ -326,9 +326,8 @@ pub const Command = struct {
         for (self.positional_args.items) |arg| {
             const padding = max_width - arg.name.len;
             try self.writer.print("  {s}", .{arg.name});
-            for (0..padding + 4) |_| {
-                try self.writer.writeByte(' ');
-            }
+
+            try self.writer.splatByteAll(' ', padding + 4);
             try self.writer.print("{s}", .{arg.description});
             if (arg.required) {
                 try self.writer.print(" (required)", .{});
@@ -863,10 +862,8 @@ fn printAlignedCommands(commands: []*Command) !void {
 
         const padding = max_width - printed_width;
 
-        // try cmd.writer.writeByteNTimes(' ', padding + 4); // 4-space gap between name and desc
-        for (0..padding + 4) |_| {
-            try cmd.writer.writeByte(' ');
-        }
+        try cmd.writer.splatByteAll(' ', padding + 4);
+
         try cmd.writer.print("{s}\n", .{desc});
     }
 }
@@ -914,9 +911,7 @@ fn printAlignedFlags(writer: *Writer, flags: []const Flag) !void {
 
         // Calculate and add padding
         const padding = max_width - current_width;
-        for (0..padding + 4) |_| {
-            try writer.writeByte(' ');
-        }
+        try writer.splatByteAll(' ', padding + 4);
 
         // Print description and type
         try writer.print("{s} [{s}]", .{
