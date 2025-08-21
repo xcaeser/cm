@@ -1,5 +1,5 @@
 .{
-    .name = .cm, // short for cumul
+    .name = .cumul,
     .version = "0.1.0",
     .fingerprint = 0x1212529d731ca4fb,
     .minimum_zig_version = "0.15.1",
