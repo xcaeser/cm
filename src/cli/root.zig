@@ -50,7 +50,7 @@ pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
 }
 
 fn run(ctx: zli.CommandContext) !void {
-    const writer = ctx.command.writer;
+    const writer = ctx.writer;
     const allocator = ctx.allocator;
     const prefix = ctx.flag("prefix", []const u8);
     const exclude = ctx.flag("exclude", []const u8);
