@@ -12,7 +12,7 @@ pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("0.1.0") catch unreachable,
+        .version = std.SemanticVersion.parse("0.1.1") catch unreachable,
     }, run);
 
     try root.addCommand(try version.register(writer, allocator));
