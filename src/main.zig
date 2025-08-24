@@ -2,7 +2,7 @@ const std = @import("std");
 const Io = std.Io;
 const fs = std.fs;
 
-const cli = @import("cli/root.zig");
+const cli = @import("cumul").cli;
 
 pub fn main() !void {
     // var dbg = std.heap.DebugAllocator(.{}).init;

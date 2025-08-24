@@ -19,7 +19,7 @@ You can build and install `cumul` using the Zig build system.
 zig build install
 ```
 
-This will place the `cm` executable in your `usr/local/bin` directory.
+This will place the `cm` executable in your `$HOME/.local/bin` directory.
 
 ## Usage
 

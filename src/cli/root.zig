@@ -7,7 +7,6 @@ const fmt = std.fmt;
 const zli = @import("zli");
 
 const version = @import("version.zig");
-const start = @import("start.zig");
 
 pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
@@ -17,7 +16,14 @@ pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
     }, run);
 
     try root.addCommand(try version.register(writer, allocator));
-    try root.addCommand(try start.register(writer, allocator));
+
+    const exclude_flag = zli.Flag{
+        .name = "exclude",
+        .shortcut = "e",
+        .description = "list of files and extenstion separated by a comma. ex: .md,.ico,src/cli/root.zig,LICENSE etc...",
+        .type = .String,
+        .default_value = .{ .String = "" },
+    };
 
     const prefix_flag = zli.Flag{
         .name = "prefix",
@@ -27,16 +33,8 @@ pub fn build(writer: *Writer, allocator: Allocator) !*zli.Command {
         .default_value = .{ .String = "" },
     };
 
-    const exclude_flag = zli.Flag{
-        .name = "exclude",
-        .shortcut = "e",
-        .description = "list of extenstion separated by a comma. ex: .md,.ico,.png etc...",
-        .type = .String,
-        .default_value = .{ .String = "" },
-    };
-
-    try root.addFlag(prefix_flag);
     try root.addFlag(exclude_flag);
+    try root.addFlag(prefix_flag);
 
     const arg = zli.PositionalArg{
         .name = "directory",

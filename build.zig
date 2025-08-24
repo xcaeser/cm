@@ -3,25 +3,26 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     b.reference_trace = 10;
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseFast });
 
     const zli_dep = b.dependency("zli", .{ .target = target, .optimize = optimize });
 
     const mod = b.addModule("cumul", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "zli", .module = zli_dep.module("zli") },
+        },
     });
 
     const exe = b.addExecutable(.{
         .name = "cm",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
-
             .target = target,
             .optimize = optimize,
-
             .imports = &.{
-                .{ .name = "zli", .module = zli_dep.module("zli") },
                 .{ .name = "cumul", .module = mod },
             },
         }),
