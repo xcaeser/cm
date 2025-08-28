@@ -28,9 +28,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    const home = b.graph.env_map.get("HOME") orelse unreachable;
-    const prefix = b.pathJoin(&.{ home, ".local" });
-    b.resolveInstallPrefix(prefix, .{});
+    // const home = b.graph.env_map.get("HOME") orelse unreachable;
+    // const prefix = b.pathJoin(&.{ home, ".local" });
+    // b.resolveInstallPrefix(prefix, .{});
 
     b.installArtifact(exe);
 
