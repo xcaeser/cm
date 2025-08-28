@@ -10,8 +10,8 @@ pub fn main() !void {
     // const allocator = dbg.allocator();
     const allocator = std.heap.smp_allocator;
 
-    const file = fs.File.stdout();
-    var writer = file.writerStreaming(&.{}).interface;
+    const wfile = fs.File.stdout();
+    var writer = wfile.writerStreaming(&.{}).interface;
 
     const root = try cli.build(&writer, allocator);
     defer root.deinit();

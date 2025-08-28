@@ -1,12 +1,13 @@
 .{
     .name = .cumul,
-    .version = "0.1.1",
+    .version = "0.1.2",
     .fingerprint = 0x1212529d731ca4fb,
     .minimum_zig_version = "0.15.1",
     .dependencies = .{
         .zli = .{
             .url = "https://github.com/xcaeser/zli/archive/v4.1.1.tar.gz",
             .hash = "zli-4.1.1-LeUjpljfAAAak_E3L4NPowuzPs_FUF9-jYyxuTSNSthM",
+            // .path = "../zli",
         },
     },
     .paths = .{

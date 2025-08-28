@@ -1,62 +1,48 @@
 # Cumul
 
-`cumul` is a fast, simple command-line utility written in Zig that concatenates all files in a directory into a single text file. This is particularly useful for providing context to Large Language Models (LLMs).
+`cm` is a fast CLI tool that concatenates text files in a directory into one output file, ideal for LLM context.
 
-The tool scans a specified directory, respects the patterns in your `.gitignore` file, and intelligently skips binary files and other non-text formats (and node-modules).
+It respects `.gitignore`, skips binaries, dotfiles, and non-text formats (e.g., images).
+
+Executable name: `cm`.
+
+[![Zig Version](https://img.shields.io/badge/Zig_Version-0.15.1-orange.svg?logo=zig)](README.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg?logo=cachet)](LICENSE)
+[![Built by xcaeser](https://img.shields.io/badge/Built%20by-@xcaeser-blue)](https://github.com/xcaeser)
+[![Version](https://img.shields.io/badge/cumul-v0.1.2-green)](https://github.com/xcaeser/cm/releases)
+
+## Usage
+
+### Basic
+
+```bash
+cm [directory]
+```
+
+Generates `<directory-name>-cumul.txt` with file headers
+
+> running only `cm` scans the current directory
+
+### Options
+
+- `-p, --prefix <string>`: Prefix output filename (e.g., `cm -p my .` → `my-<dir>-cumul.txt`).
+- `-e, --exclude <string>`: Comma-separated exclusions (e.g., `.md,LICENSE,.sh,lib/utils.ts` etc...).
+- `-v, --version`: Show version.
+- `-h, --help`: Show help.
+
+Outputs summary: files cumulated, lines, size.
 
 ## Features
 
-- **File Concatenation**: Combines multiple files into a single output file.
-- **`.gitignore` Integration**: Automatically ignores files and directories listed in `.gitignore`.
-- **Smart Filtering**: Skips dotfiles, common image formats, and the output file itself.
-- **Customizable Output**: Use a prefix for the generated filename.
+- Concatenates files with headers.
+- Integrates `.gitignore` (wildcards supported).
+- Filters non-text/dotfiles/output.
+- Custom exclusions.
 
-## Installation from source
-
-You can build and install `cumul` using the Zig build system.
+## Installation from Source
 
 ```bash
 zig build install
 ```
 
-This will place the `cm` executable in your `$HOME/.local/bin` directory.
-
-## Usage
-
-The executable is named `cm`.
-
-You can run `cm --help` or `cm -h`
-
-### Basic Usage
-
-To cumulate all files in the current directory, simply run:
-
-```bash
-cm
-```
-
-This will generate a file named `<directory-name>-cumul.txt`.
-
-### Specifying a Directory
-
-You can specify a target directory to scan:
-
-```bash
-cm path/to/your/project
-```
-
-### Adding a Prefix
-
-You can add a prefix to the output filename using the `-p` or `--prefix` flag:
-
-```bash
-cm -p my-project .
-```
-
-This will create a file named `my-project-<directory-name>-cumul.txt`.
-
-### Options
-
-- `-p, --prefix <string>`: Add a prefix to the generated filename.
-- `-v, --version`: Show the CLI version.
-- `-h, --help`: Show help of the cumul command line interface.
+Installs `cm` to `$HOME/.local/bin`.
