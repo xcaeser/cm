@@ -27,7 +27,6 @@ jobs:
           - aarch64-linux
           - x86_64-macos
           - aarch64-macos
-          - windows
         optimize:
           - Debug
           - ReleaseSafe
