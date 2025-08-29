@@ -1,6 +1,6 @@
 .{
     .name = .cumul,
-    .version = "0.1.2",
+    .version = "0.1.3",
     .fingerprint = 0x1212529d731ca4fb,
     .minimum_zig_version = "0.15.1",
     .dependencies = .{
