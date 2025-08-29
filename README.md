@@ -31,8 +31,8 @@ Generates `<directory-name>-cumul.txt` with file headers
 
 ### Options
 
-- `-p, --prefix <string>`: Prefix output filename (e.g., `cm -p my .` → `my-<dir>-cumul.txt`).
-- `-e, --exclude <string>`: Comma-separated exclusions (e.g., `.md,LICENSE,.sh,lib/utils.ts` etc...).
+- `-p, --prefix <string>`: Prefix output filename (e.g., `cm -p my` → `my-<dir>-cumul.txt`).
+- `-e, --exclude <string>`: Comma-separated exclusions (e.g., `cm -e .json,.md,LICENSE,.sh,lib/utils.ts` etc...).
 - `-v, --version`: Show version.
 - `-h, --help`: Show help.
 
