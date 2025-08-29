@@ -16,13 +16,20 @@ INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
 REPO="xcaeser/cm"
 BINARY_NAME="cm"
 
-# Print colored output
+# Quiet mode flag
+QUIET=0
+
+# Print colored output (conditional on QUIET)
 print_status() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+    if [ $QUIET -eq 0 ]; then
+        echo -e "${GREEN}[INFO]${NC} $1"
+    fi
 }
 
 print_warning() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+    if [ $QUIET -eq 0 ]; then
+        echo -e "${YELLOW}[WARN]${NC} $1"
+    fi
 }
 
 print_error() {
@@ -79,14 +86,10 @@ get_latest_version() {
 }
 
 # Download and install
-install_fast_cli() {
+install_cumul() {
     local platform version download_url temp_dir
 
-    print_status "Detecting platform..."
     platform=$(detect_platform)
-    print_status "Platform detected: $platform"
-
-    print_status "Getting latest version..."
     version=$(get_latest_version)
     print_status "Latest version: $version"
 
@@ -97,7 +100,7 @@ install_fast_cli() {
     temp_dir=$(mktemp -d)
     trap "rm -rf $temp_dir" EXIT
 
-    print_status "Downloading cumul..."
+    print_status "Downloading cumul: $download_url"
     if ! curl -L --fail --silent --show-error "$download_url" -o "$temp_dir/cm.tar.gz"; then
         print_error "Failed to download cumul from $download_url"
         print_error "Please check if a release exists for your platform"
@@ -126,12 +129,15 @@ install_fast_cli() {
     $SUDO cp "$temp_dir/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
     $SUDO chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-    print_status "Installation complete!"
-    echo
-    echo -e "${GREEN}✓${NC} cumul installed to $INSTALL_DIR/$BINARY_NAME"
-    echo
-    echo "Try it out:"
-    echo "  $BINARY_NAME --help"
+    if [ $QUIET -eq 0 ]; then
+        echo
+        echo -e "${GREEN}✓${NC} cumul installed to $INSTALL_DIR/$BINARY_NAME"
+        echo
+        echo "Try it out:"
+        echo "  $BINARY_NAME --help"
+    else
+        echo "cumul installed to $INSTALL_DIR/$BINARY_NAME"
+    fi
 }
 
 # Show usage
@@ -143,7 +149,8 @@ Usage: $0 [OPTIONS]
 
 Options:
     --prefix DIR    Install to custom directory (default: $DEFAULT_INSTALL_DIR)
-    --help          Show this help message
+    --quiet, -q     Suppress non-essential output
+    --help, -h      Show this help message
 
 Environment Variables:
     INSTALL_DIR     Custom installation directory
@@ -156,6 +163,9 @@ Examples:
     $0 --prefix /opt/bin
     INSTALL_DIR=/opt/bin $0
 
+    # Quiet installation
+    $0 --quiet
+
 EOF
 }
 
@@ -165,6 +175,10 @@ while [[ $# -gt 0 ]]; do
         --prefix)
             INSTALL_DIR="$2"
             shift 2
+            ;;
+        --quiet|-q)
+            QUIET=1
+            shift
             ;;
         --help|-h)
             show_usage
@@ -197,12 +211,8 @@ check_dependencies() {
 
 # Main
 main() {
-    echo "Cumul Installer"
-    echo "=================="
-    echo
-
     check_dependencies
-    install_fast_cli
+    install_cumul
 }
 
 main "$@"

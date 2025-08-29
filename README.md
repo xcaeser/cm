@@ -11,6 +11,12 @@ Executable name: `cm`.
 [![Built by xcaeser](https://img.shields.io/badge/Built%20by-@xcaeser-blue)](https://github.com/xcaeser)
 [![Version](https://img.shields.io/badge/cumul-v0.1.2-green)](https://github.com/xcaeser/cm/releases)
 
+## Installation
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xcaeser/cm/main/install.sh | bash
+```
+
 ## Usage
 
 ### Basic
