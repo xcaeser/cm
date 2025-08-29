@@ -38,8 +38,8 @@ jobs:
         run: |
           zig build --release=${{ matrix.optimize == 'ReleaseSafe' && 'safe' || 'off' }} -Dtarget=${{ matrix.target }}
 
-      # - name: Verify binary
-      #   if: matrix.target == 'x86_64-linux'
-      #   run: |
-      #     ./zig-out/bin/cm --help
-      #     file zig-out/bin/cm
+      - name: Verify binary
+        if: matrix.target == 'x86_64-linux'
+        run: |
+          ./zig-out/bin/cm --help
+          file zig-out/bin/cm

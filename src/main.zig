@@ -11,12 +11,12 @@ pub fn main() !void {
     const allocator = std.heap.smp_allocator;
 
     const wfile = fs.File.stdout();
-    var writer = wfile.writerStreaming(&.{}).interface;
+    var writer = wfile.writerStreaming(&.{});
 
-    const root = try cli.build(&writer, allocator);
+    const root = try cli.build(&writer.interface, allocator);
     defer root.deinit();
 
     try root.execute(.{});
 
-    try writer.flush();
+    try writer.end();
 }

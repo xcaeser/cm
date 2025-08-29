@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     b.reference_trace = 10;
-    const target = b.standardTargetOptions(.{});
+    const target = b.standardTargetOptions(.{ .default_target = .{ .os_tag = .linux, .cpu_arch = .x86_64 } });
     const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseFast });
 
     const zli_dep = b.dependency("zli", .{ .target = target, .optimize = optimize });
