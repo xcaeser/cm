@@ -149,8 +149,10 @@ fn run(ctx: zli.CommandContext) !void {
         const stat = try f.stat();
 
         // Read file contents safely
-        const rbuf = try f.readToEndAlloc(allocator, stat.size);
+
+        const rbuf = try allocator.alloc(u8, stat.size);
         defer allocator.free(rbuf);
+        _ = try f.readAll(rbuf);
         if (rbuf.len == 0) continue;
 
         const content = std.mem.trim(u8, rbuf, " \n");
@@ -202,8 +204,9 @@ fn formatSizeToHumanReadable(allocator: Allocator, size: u64) ![]u8 {
 
 /// No Need to free memory after
 fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64) !u32 {
-    const content = try file.readToEndAlloc(allocator, size);
+    const content = try allocator.alloc(u8, size);
     defer allocator.free(content);
+    _ = try file.readAll(content);
 
     var it = std.mem.splitScalar(u8, content, '\n');
     var num_lines: u32 = 0;
@@ -225,8 +228,10 @@ fn getSkippablefilesFromGitIgnore(allocator: Allocator) ![][]const u8 {
     defer gitignore.close();
     const stat = try gitignore.stat();
 
-    const content = try gitignore.readToEndAlloc(allocator, stat.size);
+    const content = try allocator.alloc(u8, stat.size);
     defer allocator.free(content);
+    const n = try gitignore.readAll(content);
+    _ = n; // autofix
 
     var it = std.mem.splitScalar(u8, content, '\n');
     while (it.next()) |line| {
