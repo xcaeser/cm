@@ -91,7 +91,24 @@ fn run(ctx: zli.CommandContext) !void {
 
     var num_files: u32 = 0;
 
-    const list = try getSkippablefilesFromGitIgnore(allocator);
+    var is_gitignore: bool = false;
+    var gitignoreFile: ?fs.File = null;
+
+    if (cwd.openFile(".gitignore", .{ .mode = .read_only })) |file| {
+        gitignoreFile = file;
+        is_gitignore = true;
+    } else |err| switch (err) {
+        error.FileNotFound => {
+            is_gitignore = false;
+        },
+        else => return err,
+    }
+    defer if (gitignoreFile) |f| f.close();
+
+    var list = try allocator.alloc([]const u8, 0);
+    if (is_gitignore) {
+        list = try getSkippablefilesFromGitIgnore(allocator, gitignoreFile.?);
+    }
     defer {
         for (list) |l| allocator.free(l);
         allocator.free(list);
@@ -121,21 +138,23 @@ fn run(ctx: zli.CommandContext) !void {
         }
 
         // doesn't handle src/*.zig pattern... etc.. might pull in fnmatch or glob.h
-        for (list) |pattern| {
-            const star_index = std.mem.indexOf(u8, pattern, "*");
-            if (star_index) |i| {
-                if (i == 0) {
-                    // Handle *.ext patterns
-                    const suffix = pattern[i + 1 ..];
-                    if (std.mem.endsWith(u8, e.basename, suffix)) continue :outer;
+        if (is_gitignore) {
+            for (list) |pattern| {
+                const star_index = std.mem.indexOf(u8, pattern, "*");
+                if (star_index) |i| {
+                    if (i == 0) {
+                        // Handle *.ext patterns
+                        const suffix = pattern[i + 1 ..];
+                        if (std.mem.endsWith(u8, e.basename, suffix)) continue :outer;
+                    } else {
+                        // Handle prefix* patterns
+                        const prfx = pattern[0..i];
+                        if (std.mem.startsWith(u8, e.basename, prfx)) continue :outer;
+                    }
                 } else {
-                    // Handle prefix* patterns
-                    const prfx = pattern[0..i];
-                    if (std.mem.startsWith(u8, e.basename, prfx)) continue :outer;
+                    // Handle exact or directory patterns
+                    if (std.mem.indexOf(u8, e.path, pattern) != null) continue :outer;
                 }
-            } else {
-                // Handle exact or directory patterns
-                if (std.mem.indexOf(u8, e.path, pattern) != null) continue :outer;
             }
         }
 
@@ -219,19 +238,15 @@ fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64)
 }
 
 /// Need to free memory after
-fn getSkippablefilesFromGitIgnore(allocator: Allocator) ![][]const u8 {
-    const cwd = fs.cwd();
+fn getSkippablefilesFromGitIgnore(allocator: Allocator, file: fs.File) ![][]const u8 {
     var array = std.ArrayList([]const u8).empty;
     errdefer array.deinit(allocator);
 
-    const gitignore = try cwd.openFile(".gitignore", .{ .mode = .read_only });
-    defer gitignore.close();
-    const stat = try gitignore.stat();
+    const stat = try file.stat();
 
     const content = try allocator.alloc(u8, stat.size);
     defer allocator.free(content);
-    const n = try gitignore.readAll(content);
-    _ = n; // autofix
+    _ = try file.readAll(content);
 
     var it = std.mem.splitScalar(u8, content, '\n');
     while (it.next()) |line| {
