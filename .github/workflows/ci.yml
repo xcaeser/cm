@@ -36,7 +36,7 @@ jobs:
       - uses: mlugg/setup-zig@v2
       - name: Build ${{ matrix.target }} (${{ matrix.optimize }})
         run: |
-          zig build --release=${{ matrix.optimize == 'ReleaseSafe' && 'safe' || 'off' }} -Dtarget=${{ matrix.target }}
+          zig build --Doptimize=${{ matrix.optimize }} -Dtarget=${{ matrix.target }}
 
       - name: Verify binary
         if: matrix.target == 'x86_64-linux'

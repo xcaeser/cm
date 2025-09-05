@@ -1,8 +1,8 @@
 .{
-    .name = .cumul,
-    .version = "0.1.3",
-    .fingerprint = 0x1212529d731ca4fb,
-    .minimum_zig_version = "0.16.0-dev.168+d51d18c98",
+    .name = .cm,
+    .version = "0.1.4",
+    .fingerprint = 0x3c0a377ef06c60f2,
+    .minimum_zig_version = "0.16.0-dev.178+b1189ab03",
     .dependencies = .{
         .zli = .{
             .url = "https://github.com/xcaeser/zli/archive/v4.1.1.tar.gz",

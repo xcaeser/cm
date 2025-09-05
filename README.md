@@ -6,10 +6,10 @@ It respects `.gitignore`, skips binaries, dotfiles, and non-text formats (e.g., 
 
 Executable name: `cm`.
 
-[![Zig Version](https://img.shields.io/badge/Zig_Version-0.15.1-orange.svg?logo=zig)](README.md)
+[![Zig Version](https://img.shields.io/badge/Zig_Version-0.16.0-orange.svg?logo=zig)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg?logo=cachet)](LICENSE)
 [![Built by xcaeser](https://img.shields.io/badge/Built%20by-@xcaeser-blue)](https://github.com/xcaeser)
-[![Version](https://img.shields.io/badge/cumul-v0.1.3-green)](https://github.com/xcaeser/cm/releases)
+[![Version](https://img.shields.io/badge/cumul-v0.1.4-green)](https://github.com/xcaeser/cm/releases)
 
 ## Installation
 
