@@ -15,31 +15,53 @@ jobs:
           - aarch64-linux
           - x86_64-macos
           - aarch64-macos
-        optimize:
-          - ReleaseSafe
+          - x86_64-windows
+          - aarch64-windows
+        optimize: [ReleaseSafe]
 
     steps:
       - uses: actions/checkout@v5
       - uses: mlugg/setup-zig@v2
 
       - name: Build
-        run: zig build -Doptimize=${{ matrix.optimize}} -Dtarget=${{ matrix.target }} -Dcpu=baseline
+        run: zig build -Doptimize=${{ matrix.optimize }} -Dtarget=${{ matrix.target }}
 
-      - name: Prepare artifact
+      - name: Verify Windows binary
+        if: contains(matrix.target, 'windows')
         run: |
-          mkdir -p artifacts
-          tar -czf artifacts/cm-${{ matrix.target }}.tar.gz -C zig-out/bin cm -C ../../ LICENSE
+          ls -la zig-out/bin
+          file zig-out/bin/cm.exe || true
+
+      # Package: Unix -> .tar.gz
+      - name: Package (Unix)
+        if: ${{ !contains(matrix.target, 'windows') }}
+        run: |
+          mkdir -p artifacts dist
+          cp zig-out/bin/cm dist/cm
+          cp LICENSE dist/
+          tar -C dist -czf artifacts/cm-${{ matrix.target }}.tar.gz cm LICENSE
+          ls -la artifacts
+
+      # Package: Windows -> .zip
+      - name: Package (Windows)
+        if: contains(matrix.target, 'windows')
+        run: |
+          mkdir -p artifacts dist
+          cp zig-out/bin/cm.exe dist/
+          cp LICENSE dist/
+          zip -j artifacts/cm-${{ matrix.target }}.zip dist/cm.exe dist/LICENSE
+          ls -la artifacts
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: cm-${{ matrix.target }}
-          path: artifacts/
+          path: artifacts/*
 
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: mlugg/setup-zig@v2
       - run: zig build test
 
@@ -49,7 +71,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -59,9 +81,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release/
-          find artifacts/ -name "*.tar.gz" | while read file; do
-            cp "$file" release/
-          done
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release/ \;
           ls -la release/
 
       - name: Release

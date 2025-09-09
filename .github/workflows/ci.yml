@@ -27,6 +27,8 @@ jobs:
           - aarch64-linux
           - x86_64-macos
           - aarch64-macos
+          - x86_64-windows
+          - aarch64-windows
         optimize:
           - Debug
           - ReleaseSafe
@@ -35,11 +37,16 @@ jobs:
       - uses: actions/checkout@v5
       - uses: mlugg/setup-zig@v2
       - name: Build ${{ matrix.target }} (${{ matrix.optimize }})
-        run: |
-          zig build -Doptimize=${{ matrix.optimize }} -Dtarget=${{ matrix.target }}
+        run: zig build -Doptimize=${{ matrix.optimize }} -Dtarget=${{ matrix.target }}
 
-      - name: Verify binary
+      - name: Verify binary (Linux)
         if: matrix.target == 'x86_64-linux'
         run: |
           ./zig-out/bin/cm --help
           file zig-out/bin/cm
+
+      - name: Verify Windows binary
+        if: endsWith(matrix.target, 'windows')
+        run: |
+          ls -la zig-out/bin
+          file zig-out/bin/cm.exe || true
