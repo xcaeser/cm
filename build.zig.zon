@@ -1,8 +1,8 @@
 .{
     .name = .cm,
-    .version = "0.1.5",
+    .version = "0.1.6",
     .fingerprint = 0x3c0a377ef06c60f2,
-    .minimum_zig_version = "0.16.0-dev.178+b1189ab03",
+    .minimum_zig_version = "0.16.0-dev.205+4c0127566",
     .dependencies = .{
         .zli = .{
             .url = "https://github.com/xcaeser/zli/archive/v4.1.1.tar.gz",
@@ -13,6 +13,7 @@
     .paths = .{
         "build.zig",
         "build.zig.zon",
+        "install.sh",
         "src",
     },
 }

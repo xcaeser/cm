@@ -6,16 +6,20 @@ const fmt = std.fmt;
 
 const zli = @import("zli");
 
+const update = @import("update.zig");
 const version = @import("version.zig");
 
 pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("0.1.5") catch unreachable,
+        .version = std.SemanticVersion.parse("0.1.6") catch unreachable,
     }, run);
 
-    try root.addCommand(try version.register(writer, allocator));
+    try root.addCommands(&.{
+        try update.register(writer, allocator),
+        try version.register(writer, allocator),
+    });
 
     const exclude_flag = zli.Flag{
         .name = "exclude",
