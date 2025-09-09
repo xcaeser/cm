@@ -10,7 +10,7 @@ pub fn register(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
         allocator,
         .{
             .name = "update",
-            .description = "Update cm to the latest version",
+            .description = "(WIP) Update cm to the latest version",
         },
         run,
     );
@@ -22,5 +22,5 @@ fn run(ctx: zli.CommandContext) !void {
     const allocator = ctx.allocator;
     _ = allocator; // autofix
 
-    std.debug.print("Installing \n", .{});
+    std.debug.print("Not yet implemented \n", .{});
 }

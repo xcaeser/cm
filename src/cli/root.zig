@@ -13,7 +13,7 @@ pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("0.1.6") catch unreachable,
+        .version = std.SemanticVersion.parse("0.1.7") catch unreachable,
     }, run);
 
     try root.addCommands(&.{
@@ -132,6 +132,7 @@ fn run(ctx: zli.CommandContext) !void {
         if (e.kind != .file) continue;
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
         if (std.mem.endsWith(u8, e.path, "-cumul.txt")) continue;
+        if (std.mem.endsWith(u8, e.path, ".exe")) continue;
         if (std.mem.endsWith(u8, e.path, ".ico")) continue;
         if (std.mem.endsWith(u8, e.path, ".png")) continue;
         if (std.mem.endsWith(u8, e.path, ".jpg")) continue;
