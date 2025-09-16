@@ -22,5 +22,17 @@ fn run(ctx: zli.CommandContext) !void {
     const allocator = ctx.allocator;
     _ = allocator; // autofix
 
+    // get current installed version
+
+    // get github release version
+
+    // if match, then say nothing to do
+
+    // if not match, start downloading based on the platform
+
+    // define platform, and cpu arch
+
+    // download executable
+
     std.debug.print("Not yet implemented \n", .{});
 }
