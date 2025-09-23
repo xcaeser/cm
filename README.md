@@ -1,4 +1,4 @@
-# Cumul
+# Cumul v0.1.7
 
 `cm` is a fast CLI tool that concatenates text files in a directory into one output file, ideal for LLM context.
 
