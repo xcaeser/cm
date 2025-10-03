@@ -78,8 +78,8 @@ fn run(ctx: zli.CommandContext) !void {
     try spinner.start("", .{});
     const binary_name = "cm-" ++ @tagName(builtin.cpu.arch) ++ "-" ++ @tagName(builtin.os.tag);
 
-    const default_install_dir = "/usr/local/bin";
-    _ = default_install_dir; // autofix
+    // const default_install_dir = "/usr/local/bin";
+    // _ = default_install_dir; // autofix
 
     // download executable
     const download_url = try fmt.allocPrint(allocator, "https://github.com/{s}/releases/latest/download/{s}.tar.gz", .{ repo, binary_name });
@@ -90,11 +90,23 @@ fn run(ctx: zli.CommandContext) !void {
         \\  Link: {s}
     , .{ binary_name, download_url });
 
-    // make temp dir
-    try makeTempDir();
+    try spinner.start("Downloading file...", .{});
+
+    const temp_path = try makeTempDir();
+
+    const download_file_path = try fmt.allocPrint(allocator, "{s}/cm.tar.gz", .{temp_path});
+    defer allocator.free(download_file_path);
+
+    const download_file = try fs.cwd().createFile(download_file_path, .{});
+    var download_file_writer = download_file.writer(&.{});
+    _ = try client.fetch(.{
+        .response_writer = &download_file_writer.interface,
+        .location = .{ .url = download_url },
+    });
+    try spinner.succeed("Download successful", .{});
 }
 
-fn makeTempDir() !void {
+fn makeTempDir() ![]const u8 {
     const pid = std.Thread.getCurrentId();
     var rand = std.Random.DefaultPrng.init(pid);
     var random_bytes: [4]u8 = undefined;
@@ -102,12 +114,12 @@ fn makeTempDir() !void {
     const random_string = fmt.bytesToHex(&random_bytes, .lower);
 
     const temp_path = "/tmp/tmp." ++ random_string;
-    try fs.cwd().makeDir(temp_path);
-    std.debug.print("Path: {s}\n", .{temp_path});
 
-    var d = try fs.cwd().openDir(temp_path, .{ .iterate = true });
+    var d = try fs.cwd().makeOpenPath(temp_path, .{ .iterate = true });
     defer d.close();
     try d.chmod(0o700);
 
-    // try std.process.changeCurDir(temp_path);
+    try std.process.changeCurDir(temp_path);
+
+    return temp_path;
 }
