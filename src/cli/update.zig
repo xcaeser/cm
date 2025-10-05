@@ -49,12 +49,12 @@ fn run(ctx: zli.CommandContext) !void {
     // ---- Compare versions
 
     switch (installed_version.order(github_version)) {
-        .lt, .eq => {
+        .gt, .eq => {
             try spinner.start("", .{});
             try spinner.succeed("Cumul is up to date!", .{});
             return;
         },
-        .gt => {
+        .lt => {
             try spinner.start("", .{});
             if (std.posix.geteuid() != 0) {
                 try spinner.fail(
