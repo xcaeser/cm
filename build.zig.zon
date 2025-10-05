@@ -2,12 +2,11 @@
     .name = .cm,
     .version = "0.1.8",
     .fingerprint = 0x3c0a377ef06c60f2,
-    .minimum_zig_version = "0.16.0-dev.387+4a344de65",
+    .minimum_zig_version = "0.16.0-dev.604+e932ab003",
     .dependencies = .{
         .zli = .{
             .url = "https://github.com/xcaeser/zli/archive/v4.1.1.tar.gz",
             .hash = "zli-4.1.1-LeUjpljfAAAak_E3L4NPowuzPs_FUF9-jYyxuTSNSthM",
-            // .path = "../zli",
         },
     },
     .paths = .{

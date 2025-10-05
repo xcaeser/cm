@@ -15,13 +15,19 @@ pub fn register(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
         allocator,
         .{
             .name = "update",
-            .description = "(WIP) Update cm to the latest version",
+            .description = "Update cm to the latest version (no windows support)",
         },
         run,
     );
 }
 
 fn run(ctx: zli.CommandContext) !void {
+    const os = builtin.os.tag;
+    if (os == .windows) {
+        try ctx.writer.print("Windows is not supported", .{});
+        return;
+    }
+
     const spinner = ctx.spinner;
     const allocator = ctx.allocator;
 
@@ -49,12 +55,12 @@ fn run(ctx: zli.CommandContext) !void {
     // ---- Compare versions
 
     switch (installed_version.order(github_version)) {
-        .gt, .eq => {
+        .lt, .eq => {
             try spinner.start("", .{});
             try spinner.succeed("Cumul is up to date!", .{});
             return;
         },
-        .lt => {
+        .gt => {
             try spinner.start("", .{});
             if (std.posix.geteuid() != 0) {
                 try spinner.fail(
@@ -129,8 +135,9 @@ const TempDir = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        self.allocator.free(self.path);
         self.dir.close();
+        fs.cwd().deleteTree(self.path) catch {};
+        self.allocator.free(self.path);
     }
 };
 
