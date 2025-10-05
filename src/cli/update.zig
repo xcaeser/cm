@@ -92,7 +92,13 @@ fn run(ctx: zli.CommandContext) !void {
             const binary_tmp_path = try fmt.allocPrint(allocator, "{s}/{s}", .{ temp_dir.path, final_binary_name });
             defer allocator.free(binary_tmp_path);
 
-            try installBinary(&ctx, temp_dir.dir, binary_tmp_path, default_install_path, final_binary_name);
+            try installBinary(
+                &ctx,
+                temp_dir.dir,
+                binary_tmp_path,
+                default_install_path,
+                final_binary_name,
+            );
         },
     }
 }
@@ -117,7 +123,7 @@ const TempDir = struct {
         rng.bytes(&random_bytes);
 
         const random_string = fmt.bytesToHex(&random_bytes, .lower);
-        const temp_path = try std.mem.concat(allocator, u8, &[_][]const u8{
+        const temp_path = try std.mem.concat(allocator, u8, &.{
             "/tmp/tmp.",
             &random_string,
         });
