@@ -5,10 +5,10 @@ const fs = std.fs;
 const cli = @import("cumul").cli;
 
 pub fn main() !void {
-    var dbg = std.heap.DebugAllocator(.{}).init;
-    defer std.debug.assert(dbg.deinit() == .ok);
-    const allocator = dbg.allocator();
-    // const allocator = std.heap.smp_allocator;
+    // var dbg = std.heap.DebugAllocator(.{}).init;
+    // defer std.debug.assert(dbg.deinit() == .ok);
+    // const allocator = dbg.allocator();
+    const allocator = std.heap.smp_allocator;
 
     const wfile = fs.File.stdout();
     var writer = wfile.writerStreaming(&.{});

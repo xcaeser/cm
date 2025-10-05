@@ -47,14 +47,15 @@ fn run(ctx: zli.CommandContext) !void {
     try spinner.info("Latest version: {f}", .{github_version});
 
     // ---- Compare versions
-    try spinner.start("", .{});
 
     switch (installed_version.order(github_version)) {
         .gt, .eq => {
+            try spinner.start("", .{});
             try spinner.succeed("Cumul is up to date!", .{});
             return;
         },
         .lt => {
+            try spinner.start("", .{});
             if (std.posix.geteuid() != 0) {
                 try spinner.fail(
                     \\Requires root privileges to install.
@@ -65,8 +66,7 @@ fn run(ctx: zli.CommandContext) !void {
             }
 
             // ---- Download info
-            try spinner.start("", .{});
-            try spinner.succeed(
+            try spinner.info(
                 \\Binary to download: {s}
                 \\  Link: {s}
             , .{ download_binary_name, download_url });
