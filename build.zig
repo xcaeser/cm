@@ -14,7 +14,6 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "zli", .module = zli_dep.module("zli") },
         },
-        .link_libc = true,
     });
 
     const exe = b.addExecutable(.{

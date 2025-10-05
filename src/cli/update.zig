@@ -25,24 +25,121 @@ fn run(ctx: zli.CommandContext) !void {
     const spinner = ctx.spinner;
     const allocator = ctx.allocator;
 
+    var client = http.Client{ .allocator = allocator };
+    defer client.deinit();
+
+    // ---- Init values
+    const repo = "xcaeser/cm";
+    const binary_name = "cm-" ++ @tagName(builtin.cpu.arch) ++ "-" ++ @tagName(builtin.os.tag);
+    const download_url = try fmt.allocPrint(allocator, "https://github.com/{s}/releases/latest/download/{s}.tar.gz", .{ repo, binary_name });
+    defer allocator.free(download_url);
+
+    // ---- Get latest version
     try spinner.start("Getting current installed version...", .{});
 
     const installed_version = ctx.root.options.version.?;
-    const installed_major = installed_version.major;
-    const installed_minor = installed_version.minor;
-    const installed_patch = installed_version.patch;
     try spinner.info("Installed version: {f}", .{installed_version});
+
+    const github_version = try getLatestVersion(&ctx, &client, repo);
+
+    try spinner.info("Latest version: {f}", .{github_version});
+
+    // ---- Compare versions
+    try spinner.start("", .{});
+
+    switch (installed_version.order(github_version)) {
+        .gt, .eq => {
+            try spinner.succeed("Cumul is up to date", .{});
+            // return;
+        },
+        .lt => unreachable,
+    }
+
+    // ---- Download info
+    try spinner.start("", .{});
+    try spinner.succeed(
+        \\Binary to download: {s}
+        \\  Link: {s}
+    , .{ binary_name, download_url });
+
+    // ---- Create tmp directory
+    var temp_dir = try TempDir.init(allocator);
+    defer temp_dir.deinit();
+
+    // ---- Start download
+    const download_file = try downloadFile(
+        &ctx,
+        &client,
+        download_url,
+        &temp_dir,
+    );
+    defer download_file.close();
+
+    // ---- extract file in tmp dir
+    try extractFileToDir(&ctx, download_file, temp_dir.dir);
+
+    // ---- Install binary in /usr/local/bin
+
+    try spinner.succeed(
+        \\Successfully installed! Enjoy cumul (cm)
+        \\
+        \\
+        \\    Run cm -h or cm --help to get started
+        \\
+        \\
+    , .{});
+}
+
+const Github_JSON_Response = struct {
+    tag_name: []u8,
+};
+
+const TempDir = struct {
+    path: []const u8,
+    dir: fs.Dir,
+    allocator: Allocator,
+
+    const Self = @This();
+
+    pub fn init(allocator: Allocator) !Self {
+        const timestamp: i64 = std.time.milliTimestamp();
+        var rand = std.Random.DefaultPrng.init(@intCast(timestamp));
+        const rng = rand.random();
+
+        var random_bytes: [4]u8 = undefined;
+        rng.bytes(&random_bytes);
+
+        const random_string = fmt.bytesToHex(&random_bytes, .lower);
+        // const random_string = "fa7c082d";
+        const temp_path = try std.mem.concat(allocator, u8, &[_][]const u8{
+            "/tmp/tmp.",
+            &random_string,
+        });
+
+        var temp_dir = try fs.cwd().makeOpenPath(temp_path, .{ .iterate = true });
+        try temp_dir.chmod(0o700);
+
+        return .{ .path = temp_path, .dir = temp_dir, .allocator = allocator };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.allocator.free(self.path);
+        self.dir.close();
+    }
+};
+
+fn getLatestVersion(ctx: *const zli.CommandContext, client: *http.Client, repo: []const u8) !std.SemanticVersion {
+    const spinner = ctx.spinner;
+    const allocator = ctx.allocator;
 
     try spinner.start("Getting latest online version...", .{});
 
-    const repo = "xcaeser/cm";
-    const api_url = "https://api.github.com/repos/" ++ repo ++ "/releases/latest";
+    const api_url = try fmt.allocPrint(allocator, "https://api.github.com/repos/{s}/releases/latest", .{repo});
+    defer allocator.free(api_url);
 
     var allocating_writer = Io.Writer.Allocating.init(allocator);
     defer allocating_writer.deinit();
 
-    var client = http.Client{ .allocator = allocator };
-    defer client.deinit();
     _ = try client.fetch(.{
         .response_writer = &allocating_writer.writer,
         .location = .{ .url = api_url },
@@ -50,7 +147,6 @@ fn run(ctx: zli.CommandContext) !void {
 
     const data = allocating_writer.written();
 
-    const Github_JSON_Response = struct { tag_name: []u8 };
     const parsed = try json.parseFromSlice(Github_JSON_Response, allocator, data, .{
         .ignore_unknown_fields = true,
         .parse_numbers = false,
@@ -61,65 +157,58 @@ fn run(ctx: zli.CommandContext) !void {
 
     const github_version_str = root.tag_name[1..];
     const github_version = std.SemanticVersion.parse(github_version_str) catch unreachable;
+    return github_version;
+}
 
-    try spinner.info("Latest version: {f}", .{github_version});
+fn downloadFile(ctx: *const zli.CommandContext, client: *http.Client, download_url: []const u8, temp_dir: *TempDir) !fs.File {
+    const spinner = ctx.spinner;
+    const allocator = ctx.allocator;
 
-    try spinner.start("", .{});
-    const github_major = github_version.major;
-    const github_minor = github_version.minor;
-    const github_patch = github_version.patch;
-
-    if (installed_major >= github_major and installed_minor >= github_minor and installed_patch >= github_patch) {
-        try spinner.succeed("Cumul is up to date", .{});
-
-        // return;
-    }
-
-    try spinner.start("", .{});
-    const binary_name = "cm-" ++ @tagName(builtin.cpu.arch) ++ "-" ++ @tagName(builtin.os.tag);
-
-    // const default_install_dir = "/usr/local/bin";
-    // _ = default_install_dir; // autofix
-
-    // download executable
-    const download_url = try fmt.allocPrint(allocator, "https://github.com/{s}/releases/latest/download/{s}.tar.gz", .{ repo, binary_name });
-    defer allocator.free(download_url);
-
-    try spinner.succeed(
-        \\Binary to download: {s}
-        \\  Link: {s}
-    , .{ binary_name, download_url });
-
+    spinner.updateStyle(.{ .frames = zli.SpinnerStyles.earth });
     try spinner.start("Downloading file...", .{});
 
-    const temp_path = try makeTempDir();
+    const download_rel = "cm.tar.gz";
 
-    const download_file_path = try fmt.allocPrint(allocator, "{s}/cm.tar.gz", .{temp_path});
+    const download_file_path = try fmt.allocPrint(allocator, "{s}/{s}", .{ temp_dir.path, download_rel });
     defer allocator.free(download_file_path);
 
-    const download_file = try fs.cwd().createFile(download_file_path, .{});
+    const download_file = try temp_dir.dir.createFile(download_rel, .{ .read = true });
+    errdefer download_file.close();
+
     var download_file_writer = download_file.writer(&.{});
     _ = try client.fetch(.{
         .response_writer = &download_file_writer.interface,
         .location = .{ .url = download_url },
     });
+
     try spinner.succeed("Download successful", .{});
+
+    return download_file;
 }
 
-fn makeTempDir() ![]const u8 {
-    const pid = std.Thread.getCurrentId();
-    var rand = std.Random.DefaultPrng.init(pid);
-    var random_bytes: [4]u8 = undefined;
-    rand.fill(&random_bytes);
-    const random_string = fmt.bytesToHex(&random_bytes, .lower);
+fn extractFileToDir(ctx: *const zli.CommandContext, file: fs.File, out_dir: fs.Dir) !void {
+    const spinner = ctx.spinner;
+    const allocator = ctx.allocator;
 
-    const temp_path = "/tmp/tmp." ++ random_string;
+    spinner.updateStyle(.{ .frames = zli.SpinnerStyles.dots });
+    try spinner.start("Extracting file...", .{});
 
-    var d = try fs.cwd().makeOpenPath(temp_path, .{ .iterate = true });
-    defer d.close();
-    try d.chmod(0o700);
+    const stat = try file.stat();
+    const fbuf = try allocator.alloc(u8, stat.size);
+    defer allocator.free(fbuf);
 
-    try std.process.changeCurDir(temp_path);
+    var file_reader = file.reader(fbuf);
 
-    return temp_path;
+    var buf: [std.compress.flate.max_window_len]u8 = undefined;
+    var decompress = std.compress.flate.Decompress.init(
+        &file_reader.interface,
+        .gzip,
+        &buf,
+    );
+
+    try std.tar.pipeToFileSystem(
+        out_dir,
+        &decompress.reader,
+        .{},
+    );
 }
