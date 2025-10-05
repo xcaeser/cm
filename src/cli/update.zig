@@ -15,18 +15,13 @@ pub fn register(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
         allocator,
         .{
             .name = "update",
-            .description = "Update cm to the latest version (no windows support)",
+            .description = "Update cm to the latest version",
         },
         run,
     );
 }
 
 fn run(ctx: zli.CommandContext) !void {
-    if (builtin.os.tag == .windows) {
-        try ctx.writer.print("Windows is not supported", .{});
-        return;
-    }
-
     const spinner = ctx.spinner;
     const allocator = ctx.allocator;
 

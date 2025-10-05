@@ -3,6 +3,7 @@ const Io = std.Io;
 const fs = std.fs;
 const Allocator = std.mem.Allocator;
 const fmt = std.fmt;
+const builtin = @import("builtin");
 
 const zli = @import("zli");
 
@@ -16,10 +17,8 @@ pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
         .version = std.SemanticVersion.parse("0.1.8") catch unreachable,
     }, run);
 
-    try root.addCommands(&.{
-        try update.register(writer, allocator),
-        try version.register(writer, allocator),
-    });
+    if (builtin.os.tag != .windows) try root.addCommand(try update.register(writer, allocator));
+    try root.addCommand(try version.register(writer, allocator));
 
     const exclude_flag = zli.Flag{
         .name = "exclude",
