@@ -30,9 +30,12 @@ fn run(ctx: zli.CommandContext) !void {
 
     // ---- Init values
     const repo = "xcaeser/cm";
-    const binary_name = "cm-" ++ @tagName(builtin.cpu.arch) ++ "-" ++ @tagName(builtin.os.tag);
-    const download_url = try fmt.allocPrint(allocator, "https://github.com/{s}/releases/latest/download/{s}.tar.gz", .{ repo, binary_name });
+    const download_binary_name = "cm-" ++ @tagName(builtin.cpu.arch) ++ "-" ++ @tagName(builtin.os.tag);
+    const download_filename = "cm.tar.gz";
+    const download_url = try fmt.allocPrint(allocator, "https://github.com/{s}/releases/latest/download/{s}.tar.gz", .{ repo, download_binary_name });
     defer allocator.free(download_url);
+    const default_install_path = "/usr/local/bin";
+    const final_binary_name = "cm";
 
     // ---- Get latest version
     try spinner.start("Getting current installed version...", .{});
@@ -41,7 +44,6 @@ fn run(ctx: zli.CommandContext) !void {
     try spinner.info("Installed version: {f}", .{installed_version});
 
     const github_version = try getLatestVersion(&ctx, &client, repo);
-
     try spinner.info("Latest version: {f}", .{github_version});
 
     // ---- Compare versions
@@ -49,45 +51,50 @@ fn run(ctx: zli.CommandContext) !void {
 
     switch (installed_version.order(github_version)) {
         .gt, .eq => {
-            try spinner.succeed("Cumul is up to date", .{});
-            // return;
+            try spinner.succeed("Cumul is up to date!", .{});
+            return;
         },
-        .lt => unreachable,
+        .lt => {
+            if (std.posix.geteuid() != 0) {
+                try spinner.fail(
+                    \\Requires root privileges to install.
+                    \\
+                    \\→ Consider using `sudo`
+                , .{});
+                return;
+            }
+
+            // ---- Download info
+            try spinner.start("", .{});
+            try spinner.succeed(
+                \\Binary to download: {s}
+                \\  Link: {s}
+            , .{ download_binary_name, download_url });
+
+            // ---- Create tmp directory
+            var temp_dir = try TempDir.init(allocator);
+            defer temp_dir.deinit();
+
+            // ---- Start download
+            const download_file = try downloadFile(
+                &ctx,
+                &client,
+                download_filename,
+                download_url,
+                &temp_dir,
+            );
+            defer download_file.close();
+
+            // ---- extract file in tmp dir
+            try extractFileToDir(&ctx, download_file, temp_dir.dir);
+
+            // ---- Install binary in /usr/local/bin
+            const binary_tmp_path = try fmt.allocPrint(allocator, "{s}/{s}", .{ temp_dir.path, final_binary_name });
+            defer allocator.free(binary_tmp_path);
+
+            try installBinary(&ctx, temp_dir.dir, binary_tmp_path, default_install_path, final_binary_name);
+        },
     }
-
-    // ---- Download info
-    try spinner.start("", .{});
-    try spinner.succeed(
-        \\Binary to download: {s}
-        \\  Link: {s}
-    , .{ binary_name, download_url });
-
-    // ---- Create tmp directory
-    var temp_dir = try TempDir.init(allocator);
-    defer temp_dir.deinit();
-
-    // ---- Start download
-    const download_file = try downloadFile(
-        &ctx,
-        &client,
-        download_url,
-        &temp_dir,
-    );
-    defer download_file.close();
-
-    // ---- extract file in tmp dir
-    try extractFileToDir(&ctx, download_file, temp_dir.dir);
-
-    // ---- Install binary in /usr/local/bin
-
-    try spinner.succeed(
-        \\Successfully installed! Enjoy cumul (cm)
-        \\
-        \\
-        \\    Run cm -h or cm --help to get started
-        \\
-        \\
-    , .{});
 }
 
 const Github_JSON_Response = struct {
@@ -110,7 +117,6 @@ const TempDir = struct {
         rng.bytes(&random_bytes);
 
         const random_string = fmt.bytesToHex(&random_bytes, .lower);
-        // const random_string = "fa7c082d";
         const temp_path = try std.mem.concat(allocator, u8, &[_][]const u8{
             "/tmp/tmp.",
             &random_string,
@@ -160,19 +166,17 @@ fn getLatestVersion(ctx: *const zli.CommandContext, client: *http.Client, repo: 
     return github_version;
 }
 
-fn downloadFile(ctx: *const zli.CommandContext, client: *http.Client, download_url: []const u8, temp_dir: *TempDir) !fs.File {
+fn downloadFile(ctx: *const zli.CommandContext, client: *http.Client, download_filename: []const u8, download_url: []const u8, temp_dir: *TempDir) !fs.File {
     const spinner = ctx.spinner;
     const allocator = ctx.allocator;
 
     spinner.updateStyle(.{ .frames = zli.SpinnerStyles.earth });
     try spinner.start("Downloading file...", .{});
 
-    const download_rel = "cm.tar.gz";
-
-    const download_file_path = try fmt.allocPrint(allocator, "{s}/{s}", .{ temp_dir.path, download_rel });
+    const download_file_path = try fmt.allocPrint(allocator, "{s}/{s}", .{ temp_dir.path, download_filename });
     defer allocator.free(download_file_path);
 
-    const download_file = try temp_dir.dir.createFile(download_rel, .{ .read = true });
+    const download_file = try temp_dir.dir.createFile(download_filename, .{ .read = true });
     errdefer download_file.close();
 
     var download_file_writer = download_file.writer(&.{});
@@ -211,4 +215,28 @@ fn extractFileToDir(ctx: *const zli.CommandContext, file: fs.File, out_dir: fs.D
         &decompress.reader,
         .{},
     );
+}
+
+fn installBinary(ctx: *const zli.CommandContext, source_dir: fs.Dir, source_path: []const u8, install_path: []const u8, binary_name: []const u8) !void {
+    const spinner = ctx.spinner;
+
+    try spinner.start("Installing to {s}...", .{install_path});
+
+    var install_dir = try fs.cwd().makeOpenPath(install_path, .{
+        .access_sub_paths = true,
+    });
+    defer install_dir.close();
+
+    try source_dir.copyFile(source_path, install_dir, binary_name, .{ .override_mode = 0o755 });
+
+    try spinner.succeed(
+        \\Successfully installed! 
+        \\
+        \\
+        \\    Enjoy cumul (cm)
+        \\
+        \\    → Run cm -h or cm --help to get started
+        \\
+        \\
+    , .{});
 }
