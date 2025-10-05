@@ -22,8 +22,7 @@ pub fn register(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
 }
 
 fn run(ctx: zli.CommandContext) !void {
-    const os = builtin.os.tag;
-    if (os == .windows) {
+    if (builtin.os.tag == .windows) {
         try ctx.writer.print("Windows is not supported", .{});
         return;
     }
