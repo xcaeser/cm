@@ -62,9 +62,6 @@ fn run(ctx: zli.CommandContext) !void {
 
     const cwd = fs.cwd();
 
-    var is_gitignore: bool = false;
-    var gitignore_file: ?fs.File = null;
-
     // Process given path
     var path: []const u8 = ".";
     if (pos_args.len > 0) {
@@ -74,6 +71,9 @@ fn run(ctx: zli.CommandContext) !void {
     try spinner.start("Cumul is working...", .{});
 
     // read .gitignore file if it exists
+    var is_gitignore: bool = false;
+    var gitignore_file: ?fs.File = null;
+
     if (cwd.openFile(".gitignore", .{ .mode = .read_only })) |file| {
         gitignore_file = file;
         is_gitignore = true;
@@ -139,14 +139,18 @@ fn run(ctx: zli.CommandContext) !void {
     defer dir_it.deinit();
 
     // Build the final filename and create the file
-    const cumul_filename = if (prefix.len > 0) try fmt.allocPrint(allocator, "{s}-{s}-cumul.txt", .{ prefix, base_name }) else try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
+    const cumul_filename =
+        if (prefix.len > 0)
+            try fmt.allocPrint(allocator, "{s}-{s}-cumul.txt", .{ prefix, base_name })
+        else
+            try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
     defer allocator.free(cumul_filename);
 
     const cumul_file = try cwd.createFile(cumul_filename, .{ .read = true });
     defer cumul_file.close();
 
     var cumul_file_writer = cumul_file.writer(&.{});
-    var writer = &cumul_file_writer.interface;
+    var cumul_file_io_writer = &cumul_file_writer.interface;
 
     var num_files: u18 = 0;
 
@@ -198,16 +202,16 @@ fn run(ctx: zli.CommandContext) !void {
         const content = std.mem.trim(u8, rbuf, " \n");
 
         // Write to the cumul file
-        try writer.writeAll("-------- FILE: ");
-        try writer.writeAll(e.path);
-        try writer.writeAll(" --------\n");
-        try writer.writeAll(content);
-        try writer.writeAll("\n");
+        try cumul_file_io_writer.writeAll("-------- FILE: ");
+        try cumul_file_io_writer.writeAll(e.path);
+        try cumul_file_io_writer.writeAll(" --------\n");
+        try cumul_file_io_writer.writeAll(content);
+        try cumul_file_io_writer.writeAll("\n");
 
         num_files += 1;
     }
 
-    try writer.flush();
+    try cumul_file_io_writer.flush();
 
     const stat = try cumul_file.stat();
     const byte_size = stat.size;
