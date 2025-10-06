@@ -7,9 +7,33 @@ const builtin = @import("builtin");
 
 const zli = @import("zli");
 
+const utils = @import("../lib/utils.zig");
 const update = @import("update.zig");
 const version = @import("version.zig");
 
+const exclude_flag = zli.Flag{
+    .name = "exclude",
+    .shortcut = "e",
+    .description = "list of files and extenstion separated by a comma. ex: .md,.ico,src/cli/root.zig,LICENSE etc...",
+    .type = .String,
+    .default_value = .{ .String = "" },
+};
+
+const prefix_flag = zli.Flag{
+    .name = "prefix",
+    .shortcut = "p",
+    .description = "prefix to the filename generated",
+    .type = .String,
+    .default_value = .{ .String = "" },
+};
+
+const arg = zli.PositionalArg{
+    .name = "directory",
+    .required = false,
+    .description = "The directory to scan",
+};
+
+/// cli entrypoint
 pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
         .name = "cm",
@@ -20,30 +44,8 @@ pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
     if (builtin.os.tag != .windows) try root.addCommand(try update.register(writer, allocator));
     try root.addCommand(try version.register(writer, allocator));
 
-    const exclude_flag = zli.Flag{
-        .name = "exclude",
-        .shortcut = "e",
-        .description = "list of files and extenstion separated by a comma. ex: .md,.ico,src/cli/root.zig,LICENSE etc...",
-        .type = .String,
-        .default_value = .{ .String = "" },
-    };
-
-    const prefix_flag = zli.Flag{
-        .name = "prefix",
-        .shortcut = "p",
-        .description = "prefix to the filename generated",
-        .type = .String,
-        .default_value = .{ .String = "" },
-    };
-
     try root.addFlag(exclude_flag);
     try root.addFlag(prefix_flag);
-
-    const arg = zli.PositionalArg{
-        .name = "directory",
-        .required = false,
-        .description = "The directory to scan",
-    };
 
     try root.addPositionalArg(arg);
 
@@ -51,7 +53,7 @@ pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
 }
 
 fn run(ctx: zli.CommandContext) !void {
-    const writer = ctx.writer;
+    const spinner = ctx.spinner;
     const allocator = ctx.allocator;
     const prefix = ctx.flag("prefix", []const u8);
     const exclude = ctx.flag("exclude", []const u8);
@@ -67,10 +69,12 @@ fn run(ctx: zli.CommandContext) !void {
 
     const cwd = fs.cwd();
 
+    try spinner.start("Cumul is working...", .{});
+
     // Get the real path and base directory name
     var obuf: [fs.max_path_bytes]u8 = undefined;
     const real_path = cwd.realpath(path, &obuf) catch |err| {
-        if (err == error.FileNotFound) try writer.print("Path '{s}' not found.\n", .{path});
+        if (err == error.FileNotFound) try spinner.fail("Path '{s}' not found.\n", .{path});
 
         return;
     };
@@ -78,7 +82,7 @@ fn run(ctx: zli.CommandContext) !void {
 
     // Walk the directories of the path provided
     var dir = cwd.openDir(path, .{ .iterate = true }) catch |err| {
-        if (err == error.FileNotFound) try writer.print("Path '{s}' not found.\n", .{path});
+        if (err == error.FileNotFound) try spinner.fail("Path '{s}' not found.\n", .{path});
         return;
     };
     defer dir.close();
@@ -110,7 +114,7 @@ fn run(ctx: zli.CommandContext) !void {
 
     var list = try allocator.alloc([]const u8, 0);
     if (is_gitignore) {
-        list = try getSkippablefilesFromGitIgnore(allocator, gitignoreFile.?);
+        list = try utils.getSkippablefilesFromGitIgnore(allocator, gitignoreFile.?);
     }
     defer {
         for (list) |l| allocator.free(l);
@@ -164,7 +168,7 @@ fn run(ctx: zli.CommandContext) !void {
 
         // Open the file and read its content
         var f = dir.openFile(e.path, .{ .mode = .read_only }) catch |err| {
-            try writer.print("Skipping {s}: {s}\n", .{ e.path, @errorName(err) });
+            try spinner.print("Skipping {s}: {s}\n", .{ e.path, @errorName(err) });
             continue;
         };
         defer f.close();
@@ -195,69 +199,19 @@ fn run(ctx: zli.CommandContext) !void {
 
     const stat = try cumul_file_final.stat();
     const byte_size = stat.size;
-    const file_size = try formatSizeToHumanReadable(allocator, byte_size);
+    const file_size = try utils.formatSizeToHumanReadable(allocator, byte_size);
     defer allocator.free(file_size);
 
-    const num_lines = try getNumberOfLinesInFile(allocator, &cumul_file_final, byte_size);
+    const num_lines = try utils.getNumberOfLinesInFile(allocator, &cumul_file_final, byte_size);
 
-    try writer.print(
+    try spinner.succeed(
+        \\Done.
+        \\
+        \\------ Summary ------
         \\Number of files cumulated: {d}
         \\Number of lines: {d}
         \\Final file size: {s}
         \\Written to: {s}
         \\
     , .{ num_files, num_lines, file_size, cumul_filename });
-}
-
-/// Need to free memory after
-fn formatSizeToHumanReadable(allocator: Allocator, size: u64) ![]u8 {
-    if (size < 1024) {
-        return fmt.allocPrint(allocator, "{d} bytes", .{size});
-    } else if (size < 1024 * 1024) {
-        const size_kb = @as(f64, @floatFromInt(size)) / 1024.0;
-        return fmt.allocPrint(allocator, "{d:.2} KB", .{size_kb});
-    } else if (size < 1024 * 1024 * 1024) {
-        const size_mb = @as(f64, @floatFromInt(size)) / (1024.0 * 1024.0);
-        return fmt.allocPrint(allocator, "{d:.2} MB", .{size_mb});
-    } else {
-        const size_gb = @as(f64, @floatFromInt(size)) / (1024.0 * 1024.0 * 1024.0);
-        return fmt.allocPrint(allocator, "{d:.2} GB", .{size_gb});
-    }
-}
-
-/// No Need to free memory after
-fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64) !u32 {
-    const content = try allocator.alloc(u8, size);
-    defer allocator.free(content);
-    _ = try file.readAll(content);
-
-    var it = std.mem.splitScalar(u8, content, '\n');
-    var num_lines: u32 = 0;
-
-    while (it.next()) |_| {
-        num_lines += 1;
-    }
-
-    return num_lines;
-}
-
-/// Need to free memory after
-fn getSkippablefilesFromGitIgnore(allocator: Allocator, file: fs.File) ![][]const u8 {
-    var array = std.ArrayList([]const u8).empty;
-    errdefer array.deinit(allocator);
-
-    const stat = try file.stat();
-
-    const content = try allocator.alloc(u8, stat.size);
-    defer allocator.free(content);
-    _ = try file.readAll(content);
-
-    var it = std.mem.splitScalar(u8, content, '\n');
-    while (it.next()) |line| {
-        const trimmed = std.mem.trim(u8, line, " \t");
-        if (trimmed.len == 0 or std.mem.startsWith(u8, trimmed, "#")) continue;
-        try array.append(allocator, try allocator.dupe(u8, trimmed));
-    }
-
-    return array.toOwnedSlice(allocator);
 }
