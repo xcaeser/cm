@@ -196,8 +196,7 @@ fn run(ctx: zli.CommandContext) !void {
 
         const content = std.mem.trim(u8, rbuf, " \n");
 
-        // Write to the new file
-
+        // Write to the cumul file
         try writer.writeAll("-------- FILE: ");
         try writer.writeAll(e.path);
         try writer.writeAll(" --------\n");
