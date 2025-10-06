@@ -207,11 +207,12 @@ fn run(ctx: zli.CommandContext) !void {
     try spinner.succeed(
         \\Done.
         \\
-        \\------ Summary ------
-        \\Number of files cumulated: {d}
-        \\Number of lines: {d}
-        \\Final file size: {s}
-        \\Written to: {s}
+        \\------ Cumul Summary ------
+        \\- Number of files cumulated: {d}
+        \\- Number of lines: {d}
+        \\- Final file size: {s}
+        \\- Written to: {s}
+        \\---------------------------
         \\
     , .{ num_files, num_lines, file_size, cumul_filename });
 }
