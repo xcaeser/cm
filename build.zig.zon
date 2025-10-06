@@ -1,6 +1,6 @@
 .{
     .name = .cm,
-    .version = "0.1.9",
+    .version = "0.2.0",
     .fingerprint = 0x3c0a377ef06c60f2,
     .minimum_zig_version = "0.16.0-dev.624+606c7bcc8",
     .dependencies = .{
