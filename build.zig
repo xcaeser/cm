@@ -34,7 +34,7 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
 
-    const run_step = b.step("run", "Run the app");
+    const run_step = b.step("run", "Run cm");
 
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);
@@ -79,7 +79,6 @@ pub fn build(b: *std.Build) void {
 
     // Finally we add the "check" step which will be detected
     // by ZLS and automatically enable Build-On-Save.
-    // If you copy this into your `build.zig`, make sure to rename 'foo'
-    const check = b.step("check", "Check if foo compiles");
+    const check = b.step("check", "Check if cm compiles");
     check.dependOn(&exe_check.step);
 }
