@@ -23,6 +23,7 @@ pub fn formatSizeToHumanReadable(allocator: Allocator, size: u64) ![]u8 {
 pub fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64) !u32 {
     const content = try allocator.alloc(u8, size);
     defer allocator.free(content);
+    try file.seekTo(0);
     _ = try file.readAll(content);
 
     var it = std.mem.splitScalar(u8, content, '\n');

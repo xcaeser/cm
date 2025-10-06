@@ -55,9 +55,12 @@ pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
 fn run(ctx: zli.CommandContext) !void {
     const spinner = ctx.spinner;
     const allocator = ctx.allocator;
+
     const prefix = ctx.flag("prefix", []const u8);
-    const exclude = ctx.flag("exclude", []const u8);
+    const user_exclude_list = ctx.flag("exclude", []const u8);
     const pos_args = ctx.positional_args;
+
+    const cwd = fs.cwd();
 
     // Process given path
     var path: []const u8 = undefined;
@@ -66,8 +69,6 @@ fn run(ctx: zli.CommandContext) !void {
     } else {
         path = pos_args[0];
     }
-
-    const cwd = fs.cwd();
 
     try spinner.start("Cumul is working...", .{});
 
@@ -93,16 +94,16 @@ fn run(ctx: zli.CommandContext) !void {
     const cumul_filename = if (prefix.len > 0) try fmt.allocPrint(allocator, "{s}-{s}-cumul.txt", .{ prefix, base_name }) else try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
     defer allocator.free(cumul_filename);
 
-    const cumul_file = try fs.cwd().createFile(cumul_filename, .{});
+    const cumul_file = try cwd.createFile(cumul_filename, .{ .read = true });
     defer cumul_file.close();
 
-    var num_files: u32 = 0;
+    var num_files: u18 = 0;
 
     var is_gitignore: bool = false;
-    var gitignoreFile: ?fs.File = null;
+    var gitignore_file: ?fs.File = null;
 
     if (cwd.openFile(".gitignore", .{ .mode = .read_only })) |file| {
-        gitignoreFile = file;
+        gitignore_file = file;
         is_gitignore = true;
     } else |err| switch (err) {
         error.FileNotFound => {
@@ -110,11 +111,11 @@ fn run(ctx: zli.CommandContext) !void {
         },
         else => return err,
     }
-    defer if (gitignoreFile) |f| f.close();
+    defer if (gitignore_file) |f| f.close();
 
     var list = try allocator.alloc([]const u8, 0);
     if (is_gitignore) {
-        list = try utils.getSkippablefilesFromGitIgnore(allocator, gitignoreFile.?);
+        list = try utils.getSkippablefilesFromGitIgnore(allocator, gitignore_file.?);
     }
     defer {
         for (list) |l| allocator.free(l);
@@ -124,8 +125,24 @@ fn run(ctx: zli.CommandContext) !void {
     var excl_list = std.ArrayList([]const u8).empty;
     defer excl_list.deinit(allocator);
 
-    if (exclude.len > 0) {
-        var excl_it = std.mem.splitScalar(u8, exclude, ',');
+    try excl_list.appendSlice(allocator, &.{
+        "-cumul.txt",
+        ".exe",
+        ".ico",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".woff",
+        ".tmp",
+        ".bak",
+        ".o",
+        ".obj",
+        ".gif",
+        ".svg",
+    });
+
+    if (user_exclude_list.len > 0) {
+        var excl_it = std.mem.splitScalar(u8, user_exclude_list, ',');
         while (excl_it.next()) |e| {
             try excl_list.append(allocator, e);
         }
@@ -134,13 +151,7 @@ fn run(ctx: zli.CommandContext) !void {
     outer: while (try it.next()) |e| {
         if (e.kind != .file) continue;
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
-        if (std.mem.endsWith(u8, e.path, "-cumul.txt")) continue;
-        if (std.mem.endsWith(u8, e.path, ".exe")) continue;
-        if (std.mem.endsWith(u8, e.path, ".ico")) continue;
-        if (std.mem.endsWith(u8, e.path, ".png")) continue;
-        if (std.mem.endsWith(u8, e.path, ".jpg")) continue;
-        if (std.mem.endsWith(u8, e.path, ".jpeg")) continue;
-        if (std.mem.endsWith(u8, e.path, ".woff")) continue;
+
         for (excl_list.items) |ex| {
             if (std.mem.endsWith(u8, e.path, ex)) continue :outer;
         }
@@ -176,7 +187,6 @@ fn run(ctx: zli.CommandContext) !void {
         const stat = try f.stat();
 
         // Read file contents safely
-
         const rbuf = try allocator.alloc(u8, stat.size);
         defer allocator.free(rbuf);
         _ = try f.readAll(rbuf);
@@ -194,15 +204,12 @@ fn run(ctx: zli.CommandContext) !void {
         num_files += 1;
     }
 
-    const cumul_file_final = try cwd.openFile(cumul_filename, .{ .mode = .read_only });
-    defer cumul_file_final.close();
-
-    const stat = try cumul_file_final.stat();
+    const stat = try cumul_file.stat();
     const byte_size = stat.size;
     const file_size = try utils.formatSizeToHumanReadable(allocator, byte_size);
     defer allocator.free(file_size);
 
-    const num_lines = try utils.getNumberOfLinesInFile(allocator, &cumul_file_final, byte_size);
+    const num_lines = try utils.getNumberOfLinesInFile(allocator, &cumul_file, byte_size);
 
     try spinner.succeed(
         \\Done.
