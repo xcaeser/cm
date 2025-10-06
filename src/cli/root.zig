@@ -150,6 +150,7 @@ fn run(ctx: zli.CommandContext) !void {
 
     var num_files: u18 = 0;
 
+    // start the writer loop
     outer: while (try dir_it.next()) |e| {
         if (e.kind != .file) continue;
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files

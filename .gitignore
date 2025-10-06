@@ -1,5 +1,4 @@
 .zig-cache
 zig-out
-*-cumul.txt
 
-RELEASE-NOTES.md
+*-cumul.txt
