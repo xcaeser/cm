@@ -62,46 +62,18 @@ fn run(ctx: zli.CommandContext) !void {
 
     const cwd = fs.cwd();
 
+    var is_gitignore: bool = false;
+    var gitignore_file: ?fs.File = null;
+
     // Process given path
-    var path: []const u8 = undefined;
-    if (pos_args.len == 0) {
-        path = ".";
-    } else {
+    var path: []const u8 = ".";
+    if (pos_args.len > 0) {
         path = pos_args[0];
     }
 
     try spinner.start("Cumul is working...", .{});
 
-    // Get the real path and base directory name
-    var obuf: [fs.max_path_bytes]u8 = undefined;
-    const real_path = cwd.realpath(path, &obuf) catch |err| {
-        if (err == error.FileNotFound) try spinner.fail("Path '{s}' not found.\n", .{path});
-
-        return;
-    };
-    const base_name = fs.path.basename(real_path);
-
-    // Walk the directories of the path provided
-    var dir = cwd.openDir(path, .{ .iterate = true }) catch |err| {
-        if (err == error.FileNotFound) try spinner.fail("Path '{s}' not found.\n", .{path});
-        return;
-    };
-    defer dir.close();
-    var it = try dir.walk(allocator);
-    defer it.deinit();
-
-    // Build the final filename and create the file
-    const cumul_filename = if (prefix.len > 0) try fmt.allocPrint(allocator, "{s}-{s}-cumul.txt", .{ prefix, base_name }) else try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
-    defer allocator.free(cumul_filename);
-
-    const cumul_file = try cwd.createFile(cumul_filename, .{ .read = true });
-    defer cumul_file.close();
-
-    var num_files: u18 = 0;
-
-    var is_gitignore: bool = false;
-    var gitignore_file: ?fs.File = null;
-
+    // read .gitignore file if it exists
     if (cwd.openFile(".gitignore", .{ .mode = .read_only })) |file| {
         gitignore_file = file;
         is_gitignore = true;
@@ -148,7 +120,34 @@ fn run(ctx: zli.CommandContext) !void {
         }
     }
 
-    outer: while (try it.next()) |e| {
+    // Get the real path and base directory name
+    var obuf: [fs.max_path_bytes]u8 = undefined;
+    const real_path = cwd.realpath(path, &obuf) catch |err| {
+        if (err == error.FileNotFound) try spinner.fail("Path '{s}' not found.\n", .{path});
+
+        return;
+    };
+    const base_name = fs.path.basename(real_path);
+
+    // Walk the directories of the path provided
+    var dir = cwd.openDir(path, .{ .iterate = true }) catch |err| {
+        if (err == error.FileNotFound) try spinner.fail("Path '{s}' not found.\n", .{path});
+        return;
+    };
+    defer dir.close();
+    var dir_it = try dir.walk(allocator);
+    defer dir_it.deinit();
+
+    // Build the final filename and create the file
+    const cumul_filename = if (prefix.len > 0) try fmt.allocPrint(allocator, "{s}-{s}-cumul.txt", .{ prefix, base_name }) else try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
+    defer allocator.free(cumul_filename);
+
+    const cumul_file = try cwd.createFile(cumul_filename, .{ .read = true });
+    defer cumul_file.close();
+
+    var num_files: u18 = 0;
+
+    outer: while (try dir_it.next()) |e| {
         if (e.kind != .file) continue;
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
 
