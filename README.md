@@ -17,6 +17,12 @@ Executable name: `cm`.
 curl -fsSL https://raw.githubusercontent.com/xcaeser/cm/main/install.sh | bash
 ```
 
+Updating is as simple as (linux/macos):
+
+```bash
+cm update
+```
+
 for windows (powershell): WIP, for now download the binary from the [releases](https://github.com/xcaeser/cm/releases) page.
 
 ## Usage
