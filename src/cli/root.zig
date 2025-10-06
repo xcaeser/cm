@@ -145,6 +145,9 @@ fn run(ctx: zli.CommandContext) !void {
     const cumul_file = try cwd.createFile(cumul_filename, .{ .read = true });
     defer cumul_file.close();
 
+    var cumul_file_writer = cumul_file.writer(&.{});
+    var writer = &cumul_file_writer.interface;
+
     var num_files: u18 = 0;
 
     outer: while (try dir_it.next()) |e| {
@@ -194,14 +197,17 @@ fn run(ctx: zli.CommandContext) !void {
         const content = std.mem.trim(u8, rbuf, " \n");
 
         // Write to the new file
-        try cumul_file.writeAll("-------- FILE: ");
-        try cumul_file.writeAll(e.path);
-        try cumul_file.writeAll(" --------\n");
-        try cumul_file.writeAll(content);
-        try cumul_file.writeAll("\n");
+
+        try writer.writeAll("-------- FILE: ");
+        try writer.writeAll(e.path);
+        try writer.writeAll(" --------\n");
+        try writer.writeAll(content);
+        try writer.writeAll("\n");
 
         num_files += 1;
     }
+
+    try writer.flush();
 
     const stat = try cumul_file.stat();
     const byte_size = stat.size;
