@@ -38,7 +38,7 @@ pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
     const root = try zli.Command.init(writer, allocator, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("0.2.0") catch unreachable,
+        .version = std.SemanticVersion.parse("0.2.1") catch unreachable,
     }, run);
 
     if (builtin.os.tag != .windows) try root.addCommand(try update.register(writer, allocator));

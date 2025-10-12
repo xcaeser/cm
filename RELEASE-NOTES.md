@@ -1,6 +1,5 @@
-## cm - 0.2.0
+## cm - 0.2.1
 
-- major speed improvements
-- refactored code and bump zig version
+- bump zig version
 
-full changelog: https://github.com/xcaeser/cm/compare/v0.1.9...v0.2.0
+full changelog: https://github.com/xcaeser/cm/compare/v0.2.0...v0.2.1
