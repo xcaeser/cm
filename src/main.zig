@@ -15,13 +15,17 @@ pub fn main() !void {
 
     defer if (builtin.mode == .Debug) std.debug.assert(dbg.deinit() == .ok);
 
-    const wfile = fs.File.stdout();
-    var writer = wfile.writerStreaming(&.{});
+    var wfile = fs.File.stdout().writerStreaming(&.{});
+    var writer = &wfile.interface;
 
-    const root = try cli.build(&writer.interface, allocator);
+    var buf: [4096]u8 = undefined;
+    var rfile = fs.File.stdin().readerStreaming(&buf);
+    const reader = &rfile.interface;
+
+    const root = try cli.build(writer, reader, allocator);
     defer root.deinit();
 
     try root.execute(.{});
 
-    try writer.end();
+    try writer.flush();
 }

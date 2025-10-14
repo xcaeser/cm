@@ -34,15 +34,15 @@ const arg = zli.PositionalArg{
 };
 
 /// cli entrypoint
-pub fn build(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
-    const root = try zli.Command.init(writer, allocator, .{
+pub fn build(writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli.Command {
+    const root = try zli.Command.init(writer, reader, allocator, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("0.2.1") catch unreachable,
+        .version = std.SemanticVersion.parse("0.2.2") catch unreachable,
     }, run);
 
-    if (builtin.os.tag != .windows) try root.addCommand(try update.register(writer, allocator));
-    try root.addCommand(try version.register(writer, allocator));
+    if (builtin.os.tag != .windows) try root.addCommand(try update.register(writer, reader, allocator));
+    try root.addCommand(try version.register(writer, reader, allocator));
 
     try root.addFlag(exclude_flag);
     try root.addFlag(prefix_flag);
@@ -184,28 +184,20 @@ fn run(ctx: zli.CommandContext) !void {
             }
         }
 
-        // Open the file and read its content
-        var f = dir.openFile(e.path, .{ .mode = .read_only }) catch |err| {
+        // Read file content
+        const content = dir.readFileAlloc(e.path, allocator, .unlimited) catch |err| {
             try spinner.print("Skipping {s}: {s}\n", .{ e.path, @errorName(err) });
             continue;
         };
-        defer f.close();
+        defer allocator.free(content);
 
-        const stat = try f.stat();
-
-        // Read file contents safely
-        const rbuf = try allocator.alloc(u8, stat.size);
-        defer allocator.free(rbuf);
-        _ = try f.readAll(rbuf);
-        if (rbuf.len == 0) continue;
-
-        const content = std.mem.trim(u8, rbuf, " \n");
+        const trimmed = std.mem.trim(u8, content, " \n");
 
         // Write to the cumul file
         try cumul_file_io_writer.writeAll("-------- FILE: ");
         try cumul_file_io_writer.writeAll(e.path);
         try cumul_file_io_writer.writeAll(" --------\n");
-        try cumul_file_io_writer.writeAll(content);
+        try cumul_file_io_writer.writeAll(trimmed);
         try cumul_file_io_writer.writeAll("\n");
 
         num_files += 1;

@@ -1,5 +1,6 @@
-## cm - 0.2.1
+## cm - 0.2.2
 
 - bump zig version
+- bump zli version
 
-full changelog: https://github.com/xcaeser/cm/compare/v0.2.0...v0.2.1
+full changelog: https://github.com/xcaeser/cm/compare/v0.2.1...v0.2.2

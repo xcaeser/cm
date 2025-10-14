@@ -9,9 +9,10 @@ const builtin = @import("builtin");
 
 const zli = @import("zli");
 
-pub fn register(writer: *Io.Writer, allocator: Allocator) !*zli.Command {
+pub fn register(writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli.Command {
     return zli.Command.init(
         writer,
+        reader,
         allocator,
         .{
             .name = "update",
