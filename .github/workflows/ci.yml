@@ -31,7 +31,7 @@ jobs:
           - aarch64-windows
         optimize:
           - Debug
-          - ReleaseSafe
+          - ReleaseSmall
 
     steps:
       - uses: actions/checkout@v5

@@ -17,7 +17,7 @@ jobs:
           - aarch64-macos
           - x86_64-windows
           - aarch64-windows
-        optimize: [ReleaseSafe]
+        optimize: [ReleaseSmall]
 
     steps:
       - uses: actions/checkout@v5
