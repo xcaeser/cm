@@ -1,5 +1,6 @@
 ## cm - 0.2.2
 
+- reduce binary size for a smaller footprint, as it should be
 - bump zig version
 - bump zli version
 
