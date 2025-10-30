@@ -2,7 +2,7 @@
     .name = .cm,
     .version = "0.2.2",
     .fingerprint = 0x3c0a377ef06c60f2,
-    .minimum_zig_version = "0.16.0-dev.699+529aa9f27",
+    .minimum_zig_version = "nightly",
     .dependencies = .{
         .zli = .{
             .url = "https://github.com/xcaeser/zli/archive/v4.2.0.tar.gz",
