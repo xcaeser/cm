@@ -1,6 +1,6 @@
 .{
     .name = .cm,
-    .version = "0.2.2",
+    .version = "0.3.0",
     .fingerprint = 0x3c0a377ef06c60f2,
     .minimum_zig_version = "0.16.0-dev.923+06d9e3bc0",
     .dependencies = .{
@@ -8,11 +8,15 @@
             .url = "https://github.com/xcaeser/zli/archive/v4.2.0.tar.gz",
             .hash = "zli-4.2.0-LeUjpkbkAACgsvIg905xMTcMHBlraRzlyRPYg-Gcgr6Z",
         },
+        .glob = .{
+            .url = "https://github.com/xcaeser/glob.zig/archive/v0.1.0.tar.gz",
+            .hash = "glob-0.1.0-AymqdJQ4AABqoaLWCtZyfQh4_bEh7c8bhffcZNp7HWsL",
+        },
     },
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "install.sh",
         "src",
+        "LICENSE",
     },
 }

@@ -6,6 +6,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const zli_dep = b.dependency("zli", .{ .target = target, .optimize = optimize });
+    const glob_dep = b.dependency("glob", .{ .target = target, .optimize = optimize });
 
     const mod = b.addModule("cumul", .{
         .root_source_file = b.path("src/root.zig"),
@@ -13,6 +14,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .imports = &.{
             .{ .name = "zli", .module = zli_dep.module("zli") },
+            .{ .name = "glob", .module = glob_dep.module("glob") },
         },
     });
 
@@ -71,7 +73,6 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
 
             .imports = &.{
-                .{ .name = "zli", .module = zli_dep.module("zli") },
                 .{ .name = "cumul", .module = mod },
             },
         }),

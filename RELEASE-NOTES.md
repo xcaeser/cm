@@ -1,7 +1,6 @@
-## cm - 0.2.2
+## cm - 0.3.0
 
-- reduce binary size for a smaller footprint, as it should be
+- update to use glob pattern matching: [glob.zig library](https://github.com/xcaeser/glob.zig)
 - bump zig version
-- bump zli version
 
-full changelog: https://github.com/xcaeser/cm/compare/v0.2.1...v0.2.2
+full changelog: https://github.com/xcaeser/cm/compare/v0.2.2...v0.3.0

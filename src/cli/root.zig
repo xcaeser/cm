@@ -5,6 +5,7 @@ const Allocator = std.mem.Allocator;
 const fmt = std.fmt;
 const builtin = @import("builtin");
 
+const glob = @import("glob");
 const zli = @import("zli");
 
 const utils = @import("../lib/utils.zig");
@@ -14,7 +15,7 @@ const version = @import("version.zig");
 const exclude_flag = zli.Flag{
     .name = "exclude",
     .shortcut = "e",
-    .description = "list of files and extenstion separated by a comma. ex: .md,.ico,src/cli/root.zig,LICENSE etc...",
+    .description = "Comma-separated list of file names, extensions, or glob patterns (supports globs). e.g.: *.md,*.ico,src/cli/*.zig,LICENSE",
     .type = .String,
     .default_value = .{ .String = "" },
 };
@@ -38,7 +39,7 @@ pub fn build(writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli
     const root = try zli.Command.init(writer, reader, allocator, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("0.2.2") catch unreachable,
+        .version = std.SemanticVersion.parse("0.3.0") catch unreachable,
     }, run);
 
     if (builtin.os.tag != .windows) try root.addCommand(try update.register(writer, reader, allocator));
@@ -85,32 +86,32 @@ fn run(ctx: zli.CommandContext) !void {
     }
     defer if (gitignore_file) |f| f.close();
 
-    var list = try allocator.alloc([]const u8, 0);
+    var git_list = try allocator.alloc([]const u8, 0);
     if (is_gitignore) {
-        list = try utils.getSkippablefilesFromGitIgnore(allocator, gitignore_file.?);
+        git_list = try utils.getSkippablefilesFromGitIgnore(allocator, gitignore_file.?);
     }
     defer {
-        for (list) |l| allocator.free(l);
-        allocator.free(list);
+        for (git_list) |l| allocator.free(l);
+        allocator.free(git_list);
     }
 
     var excl_list = std.ArrayList([]const u8).empty;
     defer excl_list.deinit(allocator);
 
     try excl_list.appendSlice(allocator, &.{
-        "-cumul.txt",
-        ".exe",
-        ".ico",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".woff",
-        ".tmp",
-        ".bak",
-        ".o",
-        ".obj",
-        ".gif",
-        ".svg",
+        "*-cumul.txt",
+        "*.exe",
+        "*.ico",
+        "*.png",
+        "*.jpg",
+        "*.jpeg",
+        "*.woff",
+        "*.tmp",
+        "*.bak",
+        "*.o",
+        "*.obj",
+        "*.gif",
+        "*.svg",
     });
 
     if (user_exclude_list.len > 0) {
@@ -160,27 +161,13 @@ fn run(ctx: zli.CommandContext) !void {
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
 
         for (excl_list.items) |ex| {
-            if (std.mem.endsWith(u8, e.path, ex)) continue :outer;
+            if (glob.match(ex, e.path)) continue :outer;
         }
 
-        // doesn't handle src/*.zig pattern... etc.. might pull in fnmatch or glob.h
         if (is_gitignore) {
-            for (list) |pattern| {
-                const star_index = std.mem.indexOf(u8, pattern, "*");
-                if (star_index) |i| {
-                    if (i == 0) {
-                        // Handle *.ext patterns
-                        const suffix = pattern[i + 1 ..];
-                        if (std.mem.endsWith(u8, e.basename, suffix)) continue :outer;
-                    } else {
-                        // Handle prefix* patterns
-                        const prfx = pattern[0..i];
-                        if (std.mem.startsWith(u8, e.basename, prfx)) continue :outer;
-                    }
-                } else {
-                    // Handle exact or directory patterns
-                    if (std.mem.indexOf(u8, e.path, pattern) != null) continue :outer;
-                }
+            for (git_list) |pattern| {
+                if (glob.match(pattern, e.basename)) continue :outer;
+                if (std.mem.indexOf(u8, e.path, pattern) != null) continue :outer;
             }
         }
 
