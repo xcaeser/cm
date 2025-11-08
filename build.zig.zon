@@ -4,13 +4,13 @@
     .fingerprint = 0x3c0a377ef06c60f2,
     .minimum_zig_version = "0.16.0-dev.923+06d9e3bc0",
     .dependencies = .{
-        .zli = .{
-            .url = "https://github.com/xcaeser/zli/archive/v4.2.0.tar.gz",
-            .hash = "zli-4.2.0-LeUjpkbkAACgsvIg905xMTcMHBlraRzlyRPYg-Gcgr6Z",
-        },
         .glob = .{
             .url = "https://github.com/xcaeser/glob.zig/archive/v0.1.0.tar.gz",
             .hash = "glob-0.1.0-AymqdJQ4AABqoaLWCtZyfQh4_bEh7c8bhffcZNp7HWsL",
+        },
+        .zli = .{
+            .url = "https://github.com/xcaeser/zli/archive/v4.3.0.tar.gz",
+            .hash = "zli-4.3.0-LeUjpmbfAACPnRj2nzbzaLMNfTkq-LEWSC9EfOcnFxjl",
         },
     },
     .paths = .{

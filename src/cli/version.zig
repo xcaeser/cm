@@ -11,5 +11,5 @@ pub fn register(writer: *Io.Writer, reader: *Io.Reader, allocator: std.mem.Alloc
 }
 
 fn show(ctx: zli.CommandContext) !void {
-    try ctx.root.showVersion();
+    try ctx.root.printVersion();
 }
