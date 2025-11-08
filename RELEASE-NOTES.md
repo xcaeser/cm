@@ -1,6 +1,6 @@
-## cm - 0.3.0
+## cm - 0.3.1
 
-- update to use glob pattern matching: [glob.zig library](https://github.com/xcaeser/glob.zig)
 - bump zig version
+- bump zli version for faster cli
 
-full changelog: https://github.com/xcaeser/cm/compare/v0.2.2...v0.3.0
+full changelog: https://github.com/xcaeser/cm/compare/v0.3.0...v0.3.1
