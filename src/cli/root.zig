@@ -15,7 +15,7 @@ const version = @import("version.zig");
 const exclude_flag = zli.Flag{
     .name = "exclude",
     .shortcut = "e",
-    .description = "Comma-separated list of file names, extensions, or glob patterns (supports globs). e.g.: *.md,*.ico,src/cli/*.zig,LICENSE",
+    .description = "Comma-separated list of file names, extensions, or glob patterns (supports globs). e.g.: '*.md' or '*.ico,src/cli/*.zig,LICENSE' etc...",
     .type = .String,
     .default_value = .{ .String = "" },
 };
@@ -54,8 +54,8 @@ pub fn build(io: Io, writer: *Io.Writer, reader: *Io.Reader, allocator: Allocato
 }
 
 fn run(ctx: zli.CommandContext) !void {
-    const spinner = ctx.spinner;
     const allocator = ctx.allocator;
+    const stdout = ctx.writer;
 
     const prefix = ctx.flag("prefix", []const u8);
     const user_exclude_list = ctx.flag("exclude", []const u8);
@@ -68,8 +68,6 @@ fn run(ctx: zli.CommandContext) !void {
     if (pos_args.len > 0) {
         path = pos_args[0];
     }
-
-    try spinner.start("Cumul is working...", .{});
 
     // read .gitignore file if it exists
     var is_gitignore: bool = false;
@@ -124,7 +122,7 @@ fn run(ctx: zli.CommandContext) !void {
     // Get the real path and base directory name
     var obuf: [fs.max_path_bytes]u8 = undefined;
     const real_path = cwd.realpath(path, &obuf) catch |err| {
-        if (err == error.FileNotFound) try spinner.fail("Path '{s}' not found.\n", .{path});
+        if (err == error.FileNotFound) try stdout.print("Path '{s}' not found.\n", .{path});
 
         return;
     };
@@ -132,7 +130,7 @@ fn run(ctx: zli.CommandContext) !void {
 
     // Walk the directories of the path provided
     var dir = cwd.openDir(path, .{ .iterate = true }) catch |err| {
-        if (err == error.FileNotFound) try spinner.fail("Path '{s}' not found.\n", .{path});
+        if (err == error.FileNotFound) try stdout.print("Path '{s}' not found.\n", .{path});
         return;
     };
     defer dir.close();
@@ -173,7 +171,7 @@ fn run(ctx: zli.CommandContext) !void {
 
         // Read file content
         const content = dir.readFileAlloc(e.path, allocator, .unlimited) catch |err| {
-            try spinner.print("Skipping {s}: {s}\n", .{ e.path, @errorName(err) });
+            try stdout.print("Skipping {s}: {s}\n", .{ e.path, @errorName(err) });
             continue;
         };
         defer allocator.free(content);
@@ -199,9 +197,7 @@ fn run(ctx: zli.CommandContext) !void {
 
     const num_lines = try utils.getNumberOfLinesInFile(allocator, &cumul_file, byte_size);
 
-    try spinner.succeed(
-        \\Done.
-        \\
+    try stdout.print(
         \\------ Cumul Summary ------
         \\- Number of files cumulated: {d}
         \\- Number of lines: {d}
