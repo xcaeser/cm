@@ -9,8 +9,9 @@ const builtin = @import("builtin");
 
 const zli = @import("zli");
 
-pub fn register(writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli.Command {
+pub fn register(io: Io, writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli.Command {
     return zli.Command.init(
+        io,
         writer,
         reader,
         allocator,
@@ -25,8 +26,9 @@ pub fn register(writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*
 fn run(ctx: zli.CommandContext) !void {
     const spinner = ctx.spinner;
     const allocator = ctx.allocator;
+    const io = ctx.io;
 
-    var client = http.Client{ .allocator = allocator };
+    var client = http.Client{ .io = ctx.io, .allocator = allocator };
     defer client.deinit();
 
     // ---- Init values
@@ -73,7 +75,7 @@ fn run(ctx: zli.CommandContext) !void {
             , .{ download_binary_name, download_url });
 
             // ---- Create tmp directory
-            var temp_dir = try TempDir.init(allocator);
+            var temp_dir = try TempDir.init(io, allocator);
             defer temp_dir.deinit();
 
             // ---- Start download
@@ -115,9 +117,9 @@ const TempDir = struct {
 
     const Self = @This();
 
-    pub fn init(allocator: Allocator) !Self {
-        const timestamp: i64 = std.time.milliTimestamp();
-        var rand = std.Random.DefaultPrng.init(@intCast(timestamp));
+    pub fn init(io: Io, allocator: Allocator) !Self {
+        const timestamp = try std.Io.Clock.Timestamp.now(io, .real);
+        var rand = std.Random.DefaultPrng.init(@intCast(timestamp.raw.toMilliseconds()));
         const rng = rand.random();
 
         var random_bytes: [4]u8 = undefined;
@@ -209,7 +211,7 @@ fn extractFileToDir(ctx: *const zli.CommandContext, file: fs.File, out_dir: fs.D
     const fbuf = try allocator.alloc(u8, stat.size);
     defer allocator.free(fbuf);
 
-    var file_reader = file.reader(fbuf);
+    var file_reader = file.readerStreaming(ctx.io, fbuf);
 
     var buf: [std.compress.flate.max_window_len]u8 = undefined;
     var decompress = std.compress.flate.Decompress.init(

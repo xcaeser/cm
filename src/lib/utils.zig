@@ -24,7 +24,7 @@ pub fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: 
     const content = try allocator.alloc(u8, size);
     defer allocator.free(content);
     try file.seekTo(0);
-    _ = try file.readAll(content);
+    _ = try file.read(content);
 
     var it = std.mem.splitScalar(u8, content, '\n');
     var num_lines: u32 = 0;
@@ -45,7 +45,7 @@ pub fn getSkippablefilesFromGitIgnore(allocator: Allocator, file: fs.File) ![][]
 
     const content = try allocator.alloc(u8, stat.size);
     defer allocator.free(content);
-    _ = try file.readAll(content);
+    _ = try file.read(content);
 
     var it = std.mem.splitScalar(u8, content, '\n');
     while (it.next()) |line| {

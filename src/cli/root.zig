@@ -35,15 +35,15 @@ const arg = zli.PositionalArg{
 };
 
 /// cli entrypoint
-pub fn build(writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli.Command {
-    const root = try zli.Command.init(writer, reader, allocator, .{
+pub fn build(io: Io, writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli.Command {
+    const root = try zli.Command.init(io, writer, reader, allocator, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("0.3.1") catch unreachable,
+        .version = std.SemanticVersion.parse("0.3.2") catch unreachable,
     }, run);
 
-    if (builtin.os.tag != .windows) try root.addCommand(try update.register(writer, reader, allocator));
-    try root.addCommand(try version.register(writer, reader, allocator));
+    if (builtin.os.tag != .windows) try root.addCommand(try update.register(io, writer, reader, allocator));
+    try root.addCommand(try version.register(io, writer, reader, allocator));
 
     try root.addFlag(exclude_flag);
     try root.addFlag(prefix_flag);

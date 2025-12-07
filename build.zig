@@ -62,24 +62,4 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
-
-    // ZLS build on save
-    const exe_check = b.addExecutable(.{
-        .name = "cm",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-
-            .target = target,
-            .optimize = optimize,
-
-            .imports = &.{
-                .{ .name = "cumul", .module = mod },
-            },
-        }),
-    });
-
-    // Finally we add the "check" step which will be detected
-    // by ZLS and automatically enable Build-On-Save.
-    const check = b.step("check", "Check if cm compiles");
-    check.dependOn(&exe_check.step);
 }

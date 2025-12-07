@@ -10,19 +10,23 @@ pub fn main() !void {
 
     const allocator = switch (builtin.mode) {
         .Debug => dbg.allocator(),
-        .ReleaseFast, .ReleaseSafe, .ReleaseSmall => std.heap.smp_allocator,
+        else => std.heap.smp_allocator,
     };
 
     defer if (builtin.mode == .Debug) std.debug.assert(dbg.deinit() == .ok);
+
+    var threaded = Io.Threaded.init(allocator);
+    defer threaded.deinit();
+    const io = threaded.io();
 
     var stdout_writer = fs.File.stdout().writerStreaming(&.{});
     var stdout = &stdout_writer.interface;
 
     var buf: [4096]u8 = undefined;
-    var stdin_reader = fs.File.stdin().readerStreaming(&buf);
+    var stdin_reader = fs.File.stdin().readerStreaming(io, &buf);
     const stdin = &stdin_reader.interface;
 
-    const root = try cli.build(stdout, stdin, allocator);
+    const root = try cli.build(io, stdout, stdin, allocator);
     defer root.deinit();
 
     try root.execute(.{});
