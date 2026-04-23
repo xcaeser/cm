@@ -9,12 +9,9 @@ const builtin = @import("builtin");
 
 const zli = @import("zli");
 
-pub fn register(io: Io, writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli.Command {
+pub fn register(init_opts: zli.InitOptions) !*zli.Command {
     return zli.Command.init(
-        io,
-        writer,
-        reader,
-        allocator,
+        init_opts,
         .{
             .name = "update",
             .description = "Update cm to the latest version",
@@ -43,7 +40,7 @@ fn run(ctx: zli.CommandContext) !void {
     // ---- Get latest version
     try spinner.start("Getting current installed version...", .{});
 
-    const installed_version = ctx.root.options.version.?;
+    const installed_version = ctx.root.cmd_options.version.?;
     try spinner.info("Installed version: {f}", .{installed_version});
 
     const github_version = try getLatestVersion(&ctx, &client, repo);
@@ -59,7 +56,7 @@ fn run(ctx: zli.CommandContext) !void {
         },
         .lt => {
             try spinner.start("", .{});
-            if (std.posix.geteuid() != 0) {
+            if (std.os.linux.geteuid() != 0) {
                 try spinner.fail(
                     \\Requires root privileges to install.
                     \\
@@ -81,12 +78,13 @@ fn run(ctx: zli.CommandContext) !void {
             // ---- Start download
             const download_file = try downloadFile(
                 &ctx,
+                io,
                 &client,
                 download_filename,
                 download_url,
                 &temp_dir,
             );
-            defer download_file.close();
+            defer download_file.close(io);
 
             // ---- extract file in tmp dir
             try extractFileToDir(&ctx, download_file, temp_dir.dir);
@@ -112,13 +110,14 @@ const Github_JSON_Response = struct {
 
 const TempDir = struct {
     path: []const u8,
-    dir: fs.Dir,
+    dir: Io.Dir,
     allocator: Allocator,
+    io: Io,
 
     const Self = @This();
 
     pub fn init(io: Io, allocator: Allocator) !Self {
-        const timestamp = try std.Io.Clock.Timestamp.now(io, .real);
+        const timestamp = std.Io.Clock.Timestamp.now(io, .real);
         var rand = std.Random.DefaultPrng.init(@intCast(timestamp.raw.toMilliseconds()));
         const rng = rand.random();
 
@@ -131,15 +130,19 @@ const TempDir = struct {
             &random_string,
         });
 
-        var temp_dir = try fs.cwd().makeOpenPath(temp_path, .{ .iterate = true });
-        try temp_dir.chmod(0o700);
+        const temp_dir = try Io.Dir.cwd().createDirPathOpen(io, temp_path, .{ .open_options = .{ .iterate = true } });
 
-        return .{ .path = temp_path, .dir = temp_dir, .allocator = allocator };
+        return .{
+            .path = temp_path,
+            .dir = temp_dir,
+            .allocator = allocator,
+            .io = io,
+        };
     }
 
     pub fn deinit(self: *Self) void {
-        self.dir.close();
-        fs.cwd().deleteTree(self.path) catch {};
+        self.dir.close(self.io);
+        Io.Dir.cwd().deleteTree(self.io, self.path) catch {};
         self.allocator.free(self.path);
     }
 };
@@ -176,7 +179,7 @@ fn getLatestVersion(ctx: *const zli.CommandContext, client: *http.Client, repo: 
     return github_version;
 }
 
-fn downloadFile(ctx: *const zli.CommandContext, client: *http.Client, download_filename: []const u8, download_url: []const u8, temp_dir: *TempDir) !fs.File {
+fn downloadFile(ctx: *const zli.CommandContext, io: Io, client: *http.Client, download_filename: []const u8, download_url: []const u8, temp_dir: *TempDir) !Io.File {
     const spinner = ctx.spinner;
     const allocator = ctx.allocator;
 
@@ -186,10 +189,10 @@ fn downloadFile(ctx: *const zli.CommandContext, client: *http.Client, download_f
     const download_file_path = try fmt.allocPrint(allocator, "{s}/{s}", .{ temp_dir.path, download_filename });
     defer allocator.free(download_file_path);
 
-    const download_file = try temp_dir.dir.createFile(download_filename, .{ .read = true });
-    errdefer download_file.close();
+    const download_file = try temp_dir.dir.createFile(io, download_filename, .{ .read = true });
+    errdefer download_file.close(io);
 
-    var download_file_writer = download_file.writer(&.{});
+    var download_file_writer = download_file.writer(io, &.{});
     _ = try client.fetch(.{
         .response_writer = &download_file_writer.interface,
         .location = .{ .url = download_url },
@@ -200,18 +203,14 @@ fn downloadFile(ctx: *const zli.CommandContext, client: *http.Client, download_f
     return download_file;
 }
 
-fn extractFileToDir(ctx: *const zli.CommandContext, file: fs.File, out_dir: fs.Dir) !void {
+fn extractFileToDir(ctx: *const zli.CommandContext, file: Io.File, out_dir: Io.Dir) !void {
     const spinner = ctx.spinner;
-    const allocator = ctx.allocator;
 
     spinner.updateStyle(.{ .frames = zli.SpinnerStyles.dots });
     try spinner.start("Extracting file...", .{});
 
-    const stat = try file.stat();
-    const fbuf = try allocator.alloc(u8, stat.size);
-    defer allocator.free(fbuf);
-
-    var file_reader = file.readerStreaming(ctx.io, fbuf);
+    var fbuf: [4096]u8 = undefined;
+    var file_reader = file.readerStreaming(ctx.io, &fbuf);
 
     var buf: [std.compress.flate.max_window_len]u8 = undefined;
     var decompress = std.compress.flate.Decompress.init(
@@ -221,23 +220,26 @@ fn extractFileToDir(ctx: *const zli.CommandContext, file: fs.File, out_dir: fs.D
     );
 
     try std.tar.pipeToFileSystem(
+        ctx.io,
         out_dir,
         &decompress.reader,
         .{},
     );
 }
 
-fn installBinary(ctx: *const zli.CommandContext, source_dir: fs.Dir, source_path: []const u8, install_path: []const u8, binary_name: []const u8) !void {
+fn installBinary(ctx: *const zli.CommandContext, source_dir: Io.Dir, source_path: []const u8, install_path: []const u8, binary_name: []const u8) !void {
     const spinner = ctx.spinner;
 
     try spinner.start("Installing to {s}...", .{install_path});
 
-    var install_dir = try fs.cwd().makeOpenPath(install_path, .{
+    var install_dir = try Io.Dir.cwd().createDirPathOpen(ctx.io, install_path, .{ .open_options = .{
         .access_sub_paths = true,
-    });
-    defer install_dir.close();
+    } });
+    defer install_dir.close(ctx.io);
 
-    try source_dir.copyFile(source_path, install_dir, binary_name, .{ .override_mode = 0o755 });
+    try source_dir.copyFile(source_path, install_dir, binary_name, ctx.io, .{
+        .permissions = .fromMode(0o755),
+    });
 
     try spinner.succeed(
         \\Successfully installed! 

@@ -5,31 +5,28 @@ const builtin = @import("builtin");
 
 const cli = @import("cumul").cli;
 
-pub fn main() !void {
-    var dbg = std.heap.DebugAllocator(.{}).init;
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
+    const io = init.io;
+    var argsIterator = init.minimal.args.iterate();
 
-    const allocator = switch (builtin.mode) {
-        .Debug => dbg.allocator(),
-        else => std.heap.smp_allocator,
-    };
-
-    defer if (builtin.mode == .Debug) std.debug.assert(dbg.deinit() == .ok);
-
-    var threaded = Io.Threaded.init(allocator);
-    defer threaded.deinit();
-    const io = threaded.io();
-
-    var stdout_writer = fs.File.stdout().writerStreaming(&.{});
+    var wbuf: [4096]u8 = undefined;
+    var stdout_writer = Io.File.stdout().writerStreaming(io, &wbuf);
     var stdout = &stdout_writer.interface;
 
-    var buf: [4096]u8 = undefined;
-    var stdin_reader = fs.File.stdin().readerStreaming(io, &buf);
+    var rbuf: [4096]u8 = undefined;
+    var stdin_reader = Io.File.stdin().readerStreaming(io, &rbuf);
     const stdin = &stdin_reader.interface;
 
-    const root = try cli.build(io, stdout, stdin, allocator);
+    const root = try cli.build(.{
+        .io = io,
+        .allocator = allocator,
+        .writer = stdout,
+        .reader = stdin,
+    });
     defer root.deinit();
 
-    try root.execute(.{});
+    try root.execute(&argsIterator, .{});
 
     try stdout.flush();
 }

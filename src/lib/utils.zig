@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const fs = std.fs;
 const fmt = std.fmt;
+const Io = std.Io;
 
 /// Need to free memory after
 pub fn formatSizeToHumanReadable(allocator: Allocator, size: u64) ![]u8 {
@@ -20,11 +21,10 @@ pub fn formatSizeToHumanReadable(allocator: Allocator, size: u64) ![]u8 {
 }
 
 /// No Need to free memory after
-pub fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: u64) !u32 {
+pub fn getNumberOfLinesInFile(io: Io, allocator: Allocator, file: *const Io.File, size: u64) !u32 {
     const content = try allocator.alloc(u8, size);
     defer allocator.free(content);
-    try file.seekTo(0);
-    _ = try file.read(content);
+    _ = try file.readPositionalAll(io, content, 0); // @TO CHECK
 
     var it = std.mem.splitScalar(u8, content, '\n');
     var num_lines: u32 = 0;
@@ -37,17 +37,14 @@ pub fn getNumberOfLinesInFile(allocator: Allocator, file: *const fs.File, size: 
 }
 
 /// Need to free memory after
-pub fn getSkippablefilesFromGitIgnore(allocator: Allocator, file: fs.File) ![][]const u8 {
+pub fn getSkippablefilesFromGitIgnore(io: Io, allocator: Allocator, file: Io.File) ![][]const u8 {
     var array = std.ArrayList([]const u8).empty;
     errdefer array.deinit(allocator);
 
-    const stat = try file.stat();
+    var buf: [4096]u8 = undefined;
+    _ = try file.readStreaming(io, &.{&buf});
 
-    const content = try allocator.alloc(u8, stat.size);
-    defer allocator.free(content);
-    _ = try file.read(content);
-
-    var it = std.mem.splitScalar(u8, content, '\n');
+    var it = std.mem.splitScalar(u8, &buf, '\n');
     while (it.next()) |line| {
         const trimmed = std.mem.trim(u8, line, " \t");
         if (trimmed.len == 0 or std.mem.startsWith(u8, trimmed, "#")) continue;

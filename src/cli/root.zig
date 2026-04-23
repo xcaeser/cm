@@ -35,15 +35,15 @@ const arg = zli.PositionalArg{
 };
 
 /// cli entrypoint
-pub fn build(io: Io, writer: *Io.Writer, reader: *Io.Reader, allocator: Allocator) !*zli.Command {
-    const root = try zli.Command.init(io, writer, reader, allocator, .{
+pub fn build(init_opts: zli.InitOptions) !*zli.Command {
+    const root = try zli.Command.init(init_opts, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
         .version = std.SemanticVersion.parse("0.3.2") catch unreachable,
     }, run);
 
-    if (builtin.os.tag != .windows) try root.addCommand(try update.register(io, writer, reader, allocator));
-    try root.addCommand(try version.register(io, writer, reader, allocator));
+    if (builtin.os.tag != .windows) try root.addCommand(try update.register(init_opts));
+    try root.addCommand(try version.register(init_opts));
 
     try root.addFlag(exclude_flag);
     try root.addFlag(prefix_flag);
@@ -55,13 +55,14 @@ pub fn build(io: Io, writer: *Io.Writer, reader: *Io.Reader, allocator: Allocato
 
 fn run(ctx: zli.CommandContext) !void {
     const allocator = ctx.allocator;
+    const io = ctx.io;
     const stdout = ctx.writer;
 
     const prefix = ctx.flag("prefix", []const u8);
     const user_exclude_list = ctx.flag("exclude", []const u8);
     const pos_args = ctx.positional_args;
 
-    const cwd = fs.cwd();
+    const cwd = Io.Dir.cwd();
 
     // Process given path
     var path: []const u8 = ".";
@@ -71,9 +72,9 @@ fn run(ctx: zli.CommandContext) !void {
 
     // read .gitignore file if it exists
     var is_gitignore: bool = false;
-    var gitignore_file: ?fs.File = null;
+    var gitignore_file: ?Io.File = null;
 
-    if (cwd.openFile(".gitignore", .{ .mode = .read_only })) |file| {
+    if (cwd.openFile(io, ".gitignore", .{ .mode = .read_only })) |file| {
         gitignore_file = file;
         is_gitignore = true;
     } else |err| switch (err) {
@@ -82,11 +83,11 @@ fn run(ctx: zli.CommandContext) !void {
         },
         else => return err,
     }
-    defer if (gitignore_file) |f| f.close();
+    defer if (gitignore_file) |f| f.close(io);
 
     var git_list = try allocator.alloc([]const u8, 0);
     if (is_gitignore) {
-        git_list = try utils.getSkippablefilesFromGitIgnore(allocator, gitignore_file.?);
+        git_list = try utils.getSkippablefilesFromGitIgnore(io, allocator, gitignore_file.?);
     }
     defer {
         for (git_list) |l| allocator.free(l);
@@ -121,19 +122,19 @@ fn run(ctx: zli.CommandContext) !void {
 
     // Get the real path and base directory name
     var obuf: [fs.max_path_bytes]u8 = undefined;
-    const real_path = cwd.realpath(path, &obuf) catch |err| {
+    const real_path_size = cwd.realPathFile(io, path, &obuf) catch |err| {
         if (err == error.FileNotFound) try stdout.print("Path '{s}' not found.\n", .{path});
 
         return;
     };
-    const base_name = fs.path.basename(real_path);
+    const base_name = Io.Dir.path.basename(obuf[0..real_path_size]);
 
     // Walk the directories of the path provided
-    var dir = cwd.openDir(path, .{ .iterate = true }) catch |err| {
+    var dir = cwd.openDir(io, path, .{ .iterate = true }) catch |err| {
         if (err == error.FileNotFound) try stdout.print("Path '{s}' not found.\n", .{path});
         return;
     };
-    defer dir.close();
+    defer dir.close(io);
     var dir_it = try dir.walk(allocator);
     defer dir_it.deinit();
 
@@ -145,16 +146,16 @@ fn run(ctx: zli.CommandContext) !void {
             try fmt.allocPrint(allocator, "{s}-cumul.txt", .{base_name});
     defer allocator.free(cumul_filename);
 
-    const cumul_file = try cwd.createFile(cumul_filename, .{ .read = true });
-    defer cumul_file.close();
+    const cumul_file = try cwd.createFile(io, cumul_filename, .{ .read = true });
+    defer cumul_file.close(io);
 
-    var cumul_file_writer = cumul_file.writer(&.{});
+    var cumul_file_writer = cumul_file.writer(io, &.{});
     var cumul_file_io_writer = &cumul_file_writer.interface;
 
     var num_files: u18 = 0;
 
     // start the writer loop
-    outer: while (try dir_it.next()) |e| {
+    outer: while (try dir_it.next(io)) |e| {
         if (e.kind != .file) continue;
         if (std.mem.startsWith(u8, e.path, ".")) continue; // any dot files
 
@@ -170,7 +171,7 @@ fn run(ctx: zli.CommandContext) !void {
         }
 
         // Read file content
-        const content = dir.readFileAlloc(e.path, allocator, .unlimited) catch |err| {
+        const content = dir.readFileAlloc(io, e.path, allocator, .unlimited) catch |err| {
             try stdout.print("Skipping {s}: {s}\n", .{ e.path, @errorName(err) });
             continue;
         };
@@ -190,12 +191,12 @@ fn run(ctx: zli.CommandContext) !void {
 
     try cumul_file_io_writer.flush();
 
-    const stat = try cumul_file.stat();
+    const stat = try cumul_file.stat(io);
     const byte_size = stat.size;
     const file_size = try utils.formatSizeToHumanReadable(allocator, byte_size);
     defer allocator.free(file_size);
 
-    const num_lines = try utils.getNumberOfLinesInFile(allocator, &cumul_file, byte_size);
+    const num_lines = try utils.getNumberOfLinesInFile(io, allocator, &cumul_file, byte_size);
 
     try stdout.print(
         \\------ Cumul Summary ------
