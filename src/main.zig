@@ -8,7 +8,8 @@ const cli = @import("cumul").cli;
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
     const io = init.io;
-    var argsIterator = init.minimal.args.iterate();
+    var argsIterator = try init.minimal.args.iterateAllocator(allocator);
+    defer argsIterator.deinit();
 
     var wbuf: [1024]u8 = undefined;
     var stdout_file_writer = Io.File.Writer.init(.stdout(), io, &wbuf);
