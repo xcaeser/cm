@@ -39,7 +39,7 @@ pub fn build(init_opts: zli.InitOptions) !*zli.Command {
     const root = try zli.Command.init(init_opts, .{
         .name = "cm",
         .description = "Cumul: A utility to cumulate all files into one for LLMs",
-        .version = std.SemanticVersion.parse("0.3.2") catch unreachable,
+        .version = std.SemanticVersion.parse("0.4.0") catch unreachable,
     }, run);
 
     if (builtin.os.tag != .windows) try root.addCommand(try update.register(init_opts));
