@@ -27,7 +27,7 @@ pub fn main(init: std.process.Init) !void {
     });
     defer root.deinit();
 
-    try root.execute(&argsIterator, .{});
+    try root.execute2(&argsIterator, .{});
 
     try stdout.flush();
 }

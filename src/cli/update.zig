@@ -50,6 +50,7 @@ fn run(ctx: zli.CommandContext) !void {
 
     switch (installed_version.order(github_version)) {
         .gt, .eq => {
+            try ctx.writer.print("Cumul is up to date!", .{});
             try spinner.start("", .{});
             try spinner.succeed("Cumul is up to date!", .{});
             return;

@@ -8,8 +8,9 @@
             .hash = "glob-0.1.0-AymqdJQ4AABqoaLWCtZyfQh4_bEh7c8bhffcZNp7HWsL",
         },
         .zli = .{
-            .url = "https://github.com/xcaeser/zli/archive/v5.0.0.tar.gz",
-            .hash = "zli-5.0.0-LeUjptjnAAB7S5QkDi3-4NsGAiA9Zg1P24aQ6rx30Pwk",
+            // .url = "https://github.com/xcaeser/zli/archive/v5.0.0.tar.gz",
+            // .hash = "zli-5.0.0-LeUjptjnAAB7S5QkDi3-4NsGAiA9Zg1P24aQ6rx30Pwk",
+            .path = "../zli",
         },
     },
     .paths = .{
