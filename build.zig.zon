@@ -1,6 +1,6 @@
 .{
     .name = .cm,
-    .version = "0.4.0",
+    .version = "0.4.1",
     .fingerprint = 0x3c0a377ef06c60f2,
     .dependencies = .{
         .glob = .{
@@ -8,9 +8,8 @@
             .hash = "glob-0.1.0-AymqdJQ4AABqoaLWCtZyfQh4_bEh7c8bhffcZNp7HWsL",
         },
         .zli = .{
-            // .url = "https://github.com/xcaeser/zli/archive/v5.0.0.tar.gz",
-            // .hash = "zli-5.0.0-LeUjptjnAAB7S5QkDi3-4NsGAiA9Zg1P24aQ6rx30Pwk",
-            .path = "../zli",
+            .url = "https://github.com/xcaeser/zli/archive/v5.1.1.tar.gz",
+            .hash = "zli-5.1.1-LeUjpnIGAQDTYRwG83lLapga8go3ubhJ2vRk3zQZLqAg",
         },
     },
     .paths = .{
